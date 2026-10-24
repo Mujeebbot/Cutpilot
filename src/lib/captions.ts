@@ -19,7 +19,7 @@ export function normalizeCaption(c: Partial<Caption>): Caption {
   return {
     id: c.id ?? uid(), start: +(c.start ?? 0) || 0, end: +(c.end ?? 1) || 1, text: String(c.text ?? ''),
     x: c.x ?? 0.5, y: c.y ?? 0.8,
-    words: Array.isArray(c.words) ? c.words : undefined, timing: c.timing, presetId: c.presetId, edited: c.edited,
+    words: Array.isArray(c.words) ? c.words : undefined, timing: c.timing, presetId: c.presetId, edited: c.edited, origin: c.origin === 'draft' ? 'draft' : undefined,
     style: c.style ? normalizeStyle(c.style) : undefined,
   }
 }

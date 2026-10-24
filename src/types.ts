@@ -19,6 +19,8 @@ export interface Caption {
   presetId?: string
   /** True once the user changed text or timing by hand. */
   edited?: boolean
+  /** 'draft' = generated from the transcript when a first-draft plan was applied (safe to regenerate while unedited). */
+  origin?: 'draft'
 }
 
 export type Align = 'left' | 'center' | 'right'
@@ -56,7 +58,17 @@ export interface CaptionStyle {
 }
 
 export interface Trim { start: number; end: number }
-export type Tool = 'media' | 'captions' | 'styles' | 'ai'
+export type Tool = 'media' | 'captions' | 'styles' | 'ai' | 'draft'
+
+/**
+ * One piece of the edit: a range of the ORIGINAL video, referenced by source time (the media is never cut or copied).
+ * The array order IS the playback/export order. When the project has no clips, the single `trim` range is the edit.
+ */
+export interface Clip { id: string; start: number; end: number; label?: string; suggestionId?: string }
+
+export type OutputFormat = '9:16' | '1:1' | '16:9'
+/** What the creator told CutPilot when starting the project. */
+export interface ProjectBrief { name: string; text: string; format: OutputFormat }
 export type Aspect = 'source' | '9:16' | '1:1' | '16:9'
 export interface CanvasSettings { aspect: Aspect; bgMode: 'blur' | 'solid'; bgColor: string }
 export const DEFAULT_CANVAS: CanvasSettings = { aspect: 'source', bgMode: 'blur', bgColor: '#0a0b0e' }

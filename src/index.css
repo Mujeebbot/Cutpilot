@@ -17,9 +17,23 @@
   --color-accent-600: #6f5fe0;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-display: 'Space Grotesk', 'Inter', sans-serif;
+
+  /* landing page */
+  --color-graphite: #121316;
+  --color-charcoal: #181a1e;
+  --color-slate: #22252b;
+  --color-slate-2: #2c3037;
+  --color-bone: #ebe7df;
+  --color-bone-dim: #a9a69f;
+  --color-sodium: #e0a458;
+  --color-teal-deep: #2d6a6e;
+  --font-title: 'Bricolage Grotesque', 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', 'Inter', system-ui, sans-serif;
 }
 
-html, body, #root { height: 100%; overflow: hidden; }
+/* the editor fills the window and scrolls internally; the landing page scrolls normally */
+html.app-lock, html.app-lock body, html.app-lock #root { height: 100%; overflow: hidden; }
+html { scroll-padding-top: 72px; }
 body { background: var(--color-ink-950); color: var(--color-fg); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 input[type='range'] { accent-color: #8b7cf6; width: 100%; height: 18px; cursor: pointer; }
 input[type='color'] { background: none; border: 0; padding: 0; width: 26px; height: 26px; cursor: pointer; border-radius: 6px; }
@@ -28,3 +42,7 @@ input[type='color'] { background: none; border: 0; padding: 0; width: 26px; heig
 ::-webkit-scrollbar-thumb { background: var(--color-ink-600); border-radius: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* landing hero: the headline is cut in like three clips, one after another */
+@keyframes cut-in { from { clip-path: inset(-14px 100% -14px -14px); opacity: 0.2; } to { clip-path: inset(-14px -14px -14px -14px); opacity: 1; } }
+.cut-in { animation: cut-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }

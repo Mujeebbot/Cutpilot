@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { Caption, Trim } from '../types'
+import type { Caption, Clip, Trim } from '../types'
 import { clamp, fmt } from '../lib/util'
 
 interface Props {
@@ -15,6 +15,10 @@ interface Props {
   onTrim: (t: Trim) => void
   onSelect: (id: string) => void
   onUpdate: (id: string, p: Partial<Caption>) => void
+  clips: Clip[]
+  selClipId: string | null
+  onSelectClip: (id: string) => void
+  onClipRange: (id: string, start: number, end: number) => void
 }
 
 const STEPS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600]
@@ -57,7 +61,7 @@ function useFilmstrip(url: string | null, duration: number) {
 }
 
 /** Fixed-height timeline: filmstrip video track with trim handles, caption track, zoom + horizontal scroll, snapping. */
-export function Timeline({ duration, time, trim, captions, selId, disabled, label, url, onSeek, onTrim, onSelect, onUpdate }: Props) {
+export function Timeline({ duration, time, trim, captions, selId, disabled, label, url, onSeek, onTrim, onSelect, onUpdate, clips, selClipId, onSelectClip, onClipRange }: Props) {
   const scroller = useRef<HTMLDivElement>(null)
   const track = useRef<HTMLDivElement>(null)
   const anchor = useRef<{ t: number; px: number } | null>(null)
@@ -65,6 +69,18 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
   const [viewW, setViewW] = useState(600)
   const [snapAt, setSnapAt] = useState<number | null>(null)
   const { thumbs, n } = useFilmstrip(url, duration)
+  const clipMode = clips.length > 0
+  const selClip = clips.find((c) => c.id === selClipId)
+  /** The range whose edges the two handles move: the selected clip, or the trim when there are no clips. */
+  const handles = clipMode ? (selClip ? { start: selClip.start, end: selClip.end } : null) : trim
+  const gaps = useMemo(() => {
+    const out: { start: number; end: number }[] = []
+    let cur = 0
+    for (const c of [...clips].sort((a, b) => a.start - b.start)) { if (c.start > cur) out.push({ start: cur, end: c.start }); cur = Math.max(cur, c.end) }
+    if (duration > cur) out.push({ start: cur, end: duration })
+    return out
+  }, [clips, duration])
+  const inEdit = (c: Caption) => !clipMode || clips.some((k) => c.start < k.end && c.end > k.start)
 
   const fullW = viewW * zoom
   const pxPerSec = duration ? fullW / duration : 1
@@ -120,7 +136,7 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
     const r = track.current!.getBoundingClientRect()
     return clamp((clientX - r.left) / r.width, 0, 1) * duration
   }
-  const cands = (ex?: string) => [0, duration, time, trim.start, trim.end, ...captions.filter((c) => c.id !== ex).flatMap((c) => [c.start, c.end])]
+  const cands = (ex?: string) => [0, duration, time, trim.start, trim.end, ...clips.flatMap((c) => [c.start, c.end]), ...captions.filter((c) => c.id !== ex).flatMap((c) => [c.start, c.end])]
   /** Snap to the nearest boundary within ~9 px. Hold Alt to disable. */
   const snap = (t: number, skip: number[], alt: boolean, ex?: string) => {
     if (alt) return { t, hit: null as number | null }
@@ -142,10 +158,13 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
     if (disabled) return
     e.stopPropagation()
     e.preventDefault()
+    if (kind !== 'head' && !handles) return
+    const h0 = handles
     const apply = (x: number, alt: boolean) => {
-      const sn = snap(tAt(x), kind === 'start' ? [trim.start] : kind === 'end' ? [trim.end] : [time], alt)
+      const sn = snap(tAt(x), kind === 'start' ? [h0!.start] : kind === 'end' ? [h0!.end] : [time], alt)
       setSnapAt(sn.hit)
       if (kind === 'head') onSeek(sn.t)
+      else if (selClip && clipMode) onClipRange(selClip.id, kind === 'start' ? sn.t : selClip.start, kind === 'end' ? sn.t : selClip.end)
       else if (kind === 'start') onTrim({ start: Math.min(sn.t, trim.end - 0.1), end: trim.end })
       else onTrim({ start: trim.start, end: Math.max(sn.t, trim.start + 0.1) })
     }
@@ -211,16 +230,32 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
                   <img key={i} src={src} alt="" draggable={false} className="pointer-events-none absolute inset-y-0 h-full object-cover opacity-80"
                     style={{ left: `${(i / n) * 100}%`, width: `${100 / n}%` }} />
                 ))}
-                <div className="absolute inset-y-0 bg-accent-500/15" style={{ left: `${pct(trim.start)}%`, width: `${pct(trim.end - trim.start)}%` }} />
-                <div className="absolute inset-y-0 bg-black/60" style={{ left: 0, width: `${pct(trim.start)}%` }} />
-                <div className="absolute inset-y-0 bg-black/60" style={{ right: 0, width: `${100 - pct(trim.end)}%` }} />
-                <div className="absolute inset-y-0 border-y-2 border-accent-400/80" style={{ left: `${pct(trim.start)}%`, width: `${pct(trim.end - trim.start)}%` }} />
+                {!clipMode && (
+                  <>
+                    <div className="absolute inset-y-0 bg-accent-500/15" style={{ left: `${pct(trim.start)}%`, width: `${pct(trim.end - trim.start)}%` }} />
+                    <div className="absolute inset-y-0 bg-black/60" style={{ left: 0, width: `${pct(trim.start)}%` }} />
+                    <div className="absolute inset-y-0 bg-black/60" style={{ right: 0, width: `${100 - pct(trim.end)}%` }} />
+                    <div className="absolute inset-y-0 border-y-2 border-accent-400/80" style={{ left: `${pct(trim.start)}%`, width: `${pct(trim.end - trim.start)}%` }} />
+                  </>
+                )}
+                {clipMode && (
+                  <>
+                    {gaps.map((g, i) => <div key={i} className="pointer-events-none absolute inset-y-0 bg-black/70" style={{ left: `${pct(g.start)}%`, width: `${pct(g.end - g.start)}%` }} />)}
+                    {clips.map((c, i) => (
+                      <div key={c.id} title={`Clip ${i + 1}: ${c.label ?? ''}`} onPointerDown={() => onSelectClip(c.id)}
+                        className={`absolute inset-y-0 cursor-pointer border-y-2 ${c.id === selClipId ? 'border-accent-300 bg-accent-500/25' : 'border-accent-400/60 bg-accent-500/10'}`}
+                        style={{ left: `${pct(c.start)}%`, width: `${pct(c.end - c.start)}%` }}>
+                        <span className="pointer-events-none absolute left-1 top-0.5 grid h-4 min-w-4 place-items-center rounded bg-ink-950/80 px-1 text-[10px] tabular-nums text-white">{i + 1}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
                 {!thumbs.length && <span className="pointer-events-none absolute left-3 top-1/2 max-w-[60%] -translate-y-1/2 truncate text-[11px] text-mute">{label}</span>}
               </div>
               <div className="relative mt-1.5 h-8 rounded-md bg-ink-850">
                 {captions.map((c) => (
-                  <div key={c.id} title={c.text.replace(/\*/g, '')} onPointerDown={dragCaption(c, 'move')}
-                    className={`absolute inset-y-1 cursor-grab overflow-hidden whitespace-nowrap rounded px-2 text-[11px] leading-6 transition-colors ${c.id === selId ? 'bg-accent-500 text-white' : 'bg-ink-600 text-fg hover:bg-ink-700'}`}
+                  <div key={c.id} title={`${c.text.replace(/\*/g, '')}${inEdit(c) ? '' : ' (outside the edit, not exported)'}`} onPointerDown={dragCaption(c, 'move')}
+                    className={`absolute inset-y-1 cursor-grab overflow-hidden whitespace-nowrap rounded px-2 text-[11px] leading-6 transition-colors ${c.id === selId ? 'bg-accent-500 text-white' : 'bg-ink-600 text-fg hover:bg-ink-700'} ${inEdit(c) ? '' : 'opacity-35'}`}
                     style={{ left: `${pct(c.start)}%`, width: `${Math.max(pct(c.end - c.start), 0.3)}%` }}>
                     <span onPointerDown={dragCaption(c, 'l')} className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize hover:bg-white/40" />
                     {c.text.replace(/\*/g, '')}
@@ -230,11 +265,11 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
                 {!captions.length && <span className="pointer-events-none sticky left-0 grid h-full w-full max-w-[420px] place-items-center text-[11px] text-dim">Captions you add appear here</span>}
               </div>
 
-              {(['start', 'end'] as const).map((k) => (
-                <div key={k} role="slider" aria-label={k === 'start' ? 'Trim start' : 'Trim end'} aria-valuenow={trim[k]} title={k === 'start' ? 'Drag to set trim start' : 'Drag to set trim end'}
+              {handles && (['start', 'end'] as const).map((k) => (
+                <div key={k} role="slider" aria-label={clipMode ? (k === 'start' ? 'Clip start' : 'Clip end') : (k === 'start' ? 'Trim start' : 'Trim end')} aria-valuenow={handles[k]} title={clipMode ? 'Drag to change the selected clip' : k === 'start' ? 'Drag to set trim start' : 'Drag to set trim end'}
                   onPointerDown={dragHandle(k)}
                   className="absolute -top-0.5 z-10 grid h-[60px] w-3 -translate-x-1/2 cursor-ew-resize place-items-center rounded-[3px] bg-accent-400 transition-colors hover:bg-accent-300"
-                  style={{ left: `${pct(trim[k])}%` }}>
+                  style={{ left: `${pct(handles[k])}%` }}>
                   <span className="h-5 w-px bg-ink-950/60" />
                 </div>
               ))}

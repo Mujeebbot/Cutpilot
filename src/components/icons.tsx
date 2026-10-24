@@ -27,6 +27,9 @@ const PATHS = {
   keyboard: s('M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10'),
   check: s('M5 12.5l4.5 4.5L19 7.5'),
   search: s('M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4'),
+  clips: s('M3 7h7v10H3zM14 7h7v10h-7zM10 12h4'),
+  up: s('M6 15l6-6 6 6'),
+  down: s('M6 9l6 6 6-6'),
   film: s('M4 5h16v14H4zM10 9.5v5l4.5-2.5z'),
 } as const
 

@@ -3,6 +3,8 @@ import { drawCaption } from './render'
 import { canvasSize, drawFrame } from './compose'
 import { styleFor } from './captions'
 import { ensureFonts } from './fonts'
+import type { Range } from './sequence'
+import { totalLength } from './sequence'
 
 interface Graph { ctx: AudioContext; src: MediaElementAudioSourceNode; dest: MediaStreamAudioDestinationNode }
 const graphs = new WeakMap<HTMLVideoElement, Graph>()
@@ -32,8 +34,8 @@ function seek(v: HTMLVideoElement, t: number) {
 
 export interface ExportOptions {
   video: HTMLVideoElement
-  start: number
-  end: number
+  /** Source-time ranges, recorded one after another in this order (a single range = the original trim export). */
+  ranges: Range[]
   captions: Caption[]
   style: CaptionStyle
   canvas: CanvasSettings
@@ -50,11 +52,15 @@ const MIMES = [
 ]
 
 /**
- * Real-time render: plays the trimmed range, draws each frame + captions onto a
- * canvas, and records canvas + audio with MediaRecorder. Takes as long as the clip.
+ * Real-time render: plays each range in order, draws each frame + captions onto a
+ * canvas, and records canvas + audio with MediaRecorder in ONE continuous recording. Takes as long as the edit.
+ * Between ranges the video seeks, so the picture holds the new range's first frame (and audio is silent) for the
+ * few tens/hundreds of milliseconds the seek takes; that hold is part of the recording.
  */
 export async function exportVideo(o: ExportOptions): Promise<{ blob: Blob; ext: string }> {
-  const { video, start, end, captions, style, canvas: cv, onProgress, signal } = o
+  const { video, ranges, captions, style, canvas: cv, onProgress, signal } = o
+  if (!ranges.length || totalLength(ranges) < 0.2) throw new Error('There is nothing to export: the edit is empty or too short.')
+  const total = totalLength(ranges)
   if (typeof MediaRecorder === 'undefined') throw new Error('This browser has no MediaRecorder. Use a current Chrome, Edge or Firefox.')
   const mime = MIMES.find((m) => MediaRecorder.isTypeSupported(m))
   if (!mime) throw new Error('This browser cannot record video in MP4 or WebM.')
@@ -85,21 +91,27 @@ export async function exportVideo(o: ExportOptions): Promise<{ blob: Blob; ext: 
   video.pause()
   g.src.disconnect(g.ctx.destination) // keep recording, silence the speakers
   try {
-    await seek(video, start)
+    await seek(video, ranges[0].start)
     draw()
     rec.start(250)
-    await video.play()
-    await new Promise<void>((resolve) => {
-      const tick = () => {
-        if (signal.aborted || video.currentTime >= end || video.ended) return resolve()
-        draw()
-        onProgress(Math.min(1, (video.currentTime - start) / (end - start)))
-        requestAnimationFrame(tick)
-      }
-      tick()
-    })
-    video.pause()
-    if (signal.aborted) throw new Error('Export cancelled')
+    let done = 0
+    for (let i = 0; i < ranges.length; i++) {
+      const r = ranges[i]
+      if (i > 0) { video.pause(); await seek(video, r.start); draw() }
+      await video.play()
+      await new Promise<void>((resolve) => {
+        const tick = () => {
+          if (signal.aborted || video.currentTime >= r.end || video.ended) return resolve()
+          draw()
+          onProgress(Math.min(1, (done + Math.max(0, video.currentTime - r.start)) / total))
+          requestAnimationFrame(tick)
+        }
+        tick()
+      })
+      video.pause()
+      if (signal.aborted) throw new Error('Export cancelled')
+      done += r.end - r.start
+    }
     draw()
     await new Promise((r) => setTimeout(r, 200)) // let the last frame flush
     rec.stop()

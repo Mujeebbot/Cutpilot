@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Aspect, CanvasSettings, Caption, CaptionStyle, Tool, Trim } from './types'
+import type { Aspect, CanvasSettings, Caption, CaptionStyle, Clip, OutputFormat, Tool, Trim } from './types'
 import { DEFAULT_CANVAS } from './types'
 import { Stage } from './components/Stage'
 import { Timeline } from './components/Timeline'
+import { SequenceBar } from './components/SequenceBar'
+import { DraftPanel } from './components/DraftPanel'
+import { DraftScreen } from './components/DraftScreen'
+import type { BriefState } from './components/DraftScreen'
 import { AiPanel, CaptionsPanel, MediaPanel, RecoverCard, StylesPanel } from './components/Panels'
 import type { Recoverable } from './components/Panels'
 import { Icon } from './components/icons'
 import type { IconName } from './components/icons'
 import { btn, btnPrimary, IconButton } from './components/ui'
-import { appendEmoji, normalizeCaption, normalizeStyle, regroup, groupWords } from './lib/captions'
+import { appendEmoji, captionWords, normalizeCaption, normalizeStyle, regroup, groupWords } from './lib/captions'
 import { chunkText, looksLikeSrt, parseSrt, spread, toSrt } from './lib/srt'
 import { TEMPLATES, templateById } from './lib/templates'
 import type { Template } from './lib/templates'
@@ -16,27 +20,35 @@ import { canvasSize } from './lib/compose'
 import { ensureFonts } from './lib/fonts'
 import { clamp, download, fmt, uid } from './lib/util'
 import { exportVideo } from './lib/exporter'
-import { transcribe } from './lib/transcribe'
+import { isAbort, transcribe } from './lib/transcribe'
+import { advance, constrainClip, moveItem, playStart, sanitizeClips, sequenceRanges, sequenceToSource, totalLength } from './lib/sequence'
+import { buildPlan } from './lib/draft/plan'
+import type { DraftPlan } from './lib/draft/plan'
+import { parseBrief } from './lib/draft/brief'
+import { buildClips, captionsForRanges, mergeDraftCaptions } from './lib/draft/apply'
+import { AUTOSAVE_KEY, clearAutosave, clearSession, loadSession, saveDraft, saveProject as storeProject, takeHandoff } from './lib/session'
+import { Link, navigate } from './lib/router'
 
 type Note = { kind: 'error' | 'info'; text: string } | null
-type Snap = { captions: Caption[]; style: CaptionStyle; trim: Trim; canvas: CanvasSettings; presetId: string | null }
+type Snap = { captions: Caption[]; style: CaptionStyle; trim: Trim; canvas: CanvasSettings; presetId: string | null; clips: Clip[] }
 type Density = 1 | 2 | 3
 type Scope = 'all' | 'selected'
 
-const AUTOSAVE_KEY = 'cutpilot.autosave.v1'
 interface Saved {
   version: 1; savedAt: number; projectName: string; videoName: string | null; trim: Trim
   captions: Caption[]; style: CaptionStyle; presetId: string | null; canvas: CanvasSettings; density: Density
+  /** Added with the draft workflow; absent in older saves. */
+  clips?: Clip[]; brief?: BriefState
 }
 const readAutosave = (): Saved | null => {
   try {
     const raw = localStorage.getItem(AUTOSAVE_KEY)
     if (!raw) return null
     const d = JSON.parse(raw)
-    return d?.version === 1 && Array.isArray(d.captions) && d.captions.length ? d : null
+    return d?.version === 1 && Array.isArray(d.captions) && (d.captions.length || (Array.isArray(d.clips) && d.clips.length)) ? d : null
   } catch { return null }
 }
-const sameSnap = (a: Snap, b: Snap) => a.captions === b.captions && a.style === b.style && a.trim === b.trim && a.canvas === b.canvas && a.presetId === b.presetId
+const sameSnap = (a: Snap, b: Snap) => a.captions === b.captions && a.style === b.style && a.trim === b.trim && a.canvas === b.canvas && a.presetId === b.presetId && a.clips === b.clips
 
 const SHORTCUTS: [string, string][] = [
   ['Space', 'Play / pause'], ['← / →', 'Step one frame (assumes 30 fps)'], ['Shift + ← / →', 'Step one second'],
@@ -80,11 +92,24 @@ export default function App() {
   const [tool, setTool] = useState<Tool>('media')
   const [projectName, setProjectName] = useState('Untitled project')
   const [dragOver, setDragOver] = useState(false)
+  const [clips, setClips] = useState<Clip[]>([])
+  const [selClipId, setSelClipId] = useState<string | null>(null)
+  const [brief, setBrief] = useState<BriefState>({ text: '', format: '9:16' })
+  const [plan, setPlan] = useState<DraftPlan | null>(null)
+  const [view, setView] = useState<'editor' | 'draft'>('editor')
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [booted, setBooted] = useState(false)
+  const playIdx = useRef(0)
+  const jobAbort = useRef<AbortController | null>(null)
+  const boot = useRef(false)
+  const viewRef = useRef<'editor' | 'draft'>('editor')
+  viewRef.current = view
   const [showKeys, setShowKeys] = useState(false)
   const [, bumpHist] = useState(0)
   const [recover, setRecover] = useState<Saved | null>(() => readAutosave())
   const [asave, setAsave] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; at?: number; msg?: string }>({ state: 'idle' })
 
+  useEffect(() => { document.documentElement.classList.add('app-lock'); return () => document.documentElement.classList.remove('app-lock') }, [])
   const err = (text: string) => setNote({ kind: 'error', text })
   const info = (text: string) => setNote({ kind: 'info', text })
   const hasVideo = !!url && duration > 0
@@ -119,6 +144,7 @@ export default function App() {
       pendingTrim.current = null
       setTrim(pt ? { start: clamp(pt.start, 0, v.duration), end: clamp(pt.end, 0, v.duration) } : { start: 0, end: v.duration })
       setTime(0)
+      setClips((cs) => sanitizeClips(cs, v.duration, uid))
       hist.current = { past: [], future: [], last: null } // fresh undo history per video
       bumpHist((n) => n + 1)
       setProjectName((n) => (n === 'Untitled project' ? (fileRef.current?.name ?? n).replace(/\.[^.]+$/, '') : n))
@@ -145,16 +171,21 @@ export default function App() {
     setTime(v.currentTime)
   }, [])
 
+  const ranges = useMemo(() => sequenceRanges(clips, trim), [clips, trim])
+  const seqLen = totalLength(ranges)
+  const clipMode = clips.length > 0
+
   const togglePlay = useCallback(() => {
     const v = videoRef.current
     if (!v || !hasVideo || exporting) return
     if (v.paused) {
-      if (v.currentTime < trim.start || v.currentTime >= trim.end - 0.05) v.currentTime = trim.start
+      if (clipMode) { const ps = playStart(ranges, v.currentTime); v.currentTime = ps.t; playIdx.current = ps.index }
+      else if (v.currentTime < trim.start || v.currentTime >= trim.end - 0.05) v.currentTime = trim.start
       void v.play()
     } else v.pause()
-  }, [hasVideo, exporting, trim])
+  }, [hasVideo, exporting, trim, clipMode, ranges])
 
-  const playSelection = () => { const v = videoRef.current; if (v) { v.playbackRate = 1; v.currentTime = trim.start; void v.play() } }
+  const playSelection = () => { const v = videoRef.current; if (v) { v.playbackRate = 1; playIdx.current = 0; v.currentTime = ranges[0].start; void v.play() } }
 
   useEffect(() => {
     if (!playing || exporting) return
@@ -164,16 +195,39 @@ export default function App() {
       if (v) {
         setTime(v.currentTime)
         setFrameTick((n) => n + 1)
-        if (v.currentTime >= trim.end - 0.02) { v.pause(); v.currentTime = trim.start; setTime(trim.start) }
+        if (!clipMode) {
+          if (v.currentTime >= trim.end - 0.02) { v.pause(); v.currentTime = trim.start; setTime(trim.start) }
+        } else if (!v.seeking) {
+          // follow the approved sequence: at the end of a clip jump to the next one in sequence order
+          const a = advance(ranges, playIdx.current, v.currentTime)
+          if (a.type === 'continue') playIdx.current = a.index
+          else if (a.type === 'seek') { playIdx.current = a.index; v.currentTime = a.to; setTime(a.to) }
+          else { v.pause(); playIdx.current = 0; v.currentTime = ranges[0].start; setTime(ranges[0].start) }
+        }
       }
       id = requestAnimationFrame(tick)
     }
     id = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(id)
-  }, [playing, exporting, trim])
+  }, [playing, exporting, trim, clipMode, ranges])
 
-  const setIn = () => setTrim((t) => ({ start: Math.min(time, t.end - 0.1), end: t.end }))
-  const setOut = () => setTrim((t) => ({ start: t.start, end: Math.max(time, t.start + 0.1) }))
+  // ---------- clips ----------
+  const updateClipRange = (id: string, start: number, end: number) => {
+    const r = constrainClip(clips, id, start, end, duration)
+    if (r) setClips((cs) => cs.map((c) => (c.id === id ? { ...c, ...r } : c)))
+  }
+  const selClip = clips.find((c) => c.id === selClipId)
+  const setIn = () => { if (clipMode) { if (selClip) updateClipRange(selClip.id, Math.min(time, selClip.end - 0.3), selClip.end) } else setTrim((t) => ({ start: Math.min(time, t.end - 0.1), end: t.end })) }
+  const setOut = () => { if (clipMode) { if (selClip) updateClipRange(selClip.id, selClip.start, Math.max(time, selClip.start + 0.3)) } else setTrim((t) => ({ start: t.start, end: Math.max(time, t.start + 0.1) })) }
+  const moveClip = (id: string, dir: -1 | 1) => setClips((cs) => { const i = cs.findIndex((c) => c.id === id); return moveItem(cs, i, i + dir) })
+  const removeClip = (id: string) => { setClips((cs) => cs.filter((c) => c.id !== id)); if (selClipId === id) setSelClipId(null) }
+  const clearClips = () => {
+    if (!confirm('Go back to a single trimmed range? The clips are removed from the edit (captions stay). You can undo with Ctrl+Z.')) return
+    setClips([]); setSelClipId(null)
+    if (clips.length) setTrim({ start: Math.min(...clips.map((c) => c.start)), end: Math.max(...clips.map((c) => c.end)) })
+  }
+  const selectClip = (id: string) => setSelClipId(id)
+  const seekSource = (t: number) => { videoRef.current?.pause(); seek(t) }
 
   // ---------- captions ----------
   const updateCaption = (id: string, p: Partial<Caption>) =>
@@ -282,11 +336,11 @@ export default function App() {
   const suggestedWords = templateById(targetPreset)?.words ?? null
 
   // ---------- undo / redo (structural sharing keeps snapshots tiny: they are references, not copies) ----------
-  const cur = (): Snap => ({ captions, style, trim, canvas, presetId })
-  const applySnap = (s: Snap) => { setCaptions(s.captions); setStyle(s.style); setTrim(s.trim); setCanvas(s.canvas); setPresetId(s.presetId) }
+  const cur = (): Snap => ({ captions, style, trim, canvas, presetId, clips })
+  const applySnap = (s: Snap) => { setCaptions(s.captions); setStyle(s.style); setTrim(s.trim); setCanvas(s.canvas); setPresetId(s.presetId); setClips(s.clips); setSelClipId((id) => (s.clips.some((c) => c.id === id) ? id : null)) }
   useEffect(() => {
     const h = hist.current
-    const now = { captions, style, trim, canvas, presetId }
+    const now = { captions, style, trim, canvas, presetId, clips }
     if (!h.last) { h.last = now; return }
     if (sameSnap(h.last, now)) return
     const id = setTimeout(() => {
@@ -297,7 +351,7 @@ export default function App() {
       bumpHist((n) => n + 1)
     }, 450)
     return () => clearTimeout(id)
-  }, [captions, style, trim, canvas, presetId])
+  }, [captions, style, trim, canvas, presetId, clips])
 
   const undo = () => {
     const h = hist.current
@@ -323,6 +377,111 @@ export default function App() {
   const canUndo = hist.current.past.length > 0 || (!!hist.current.last && !sameSnap(hist.current.last, cur()))
   const canRedo = hist.current.future.length > 0
 
+  // ---------- first draft ----------
+  const fullBrief = (): { name: string; text: string; format: OutputFormat } => ({ name: projectName, ...brief })
+  const changePlan = (next: DraftPlan | null) => setPlan(next)
+  useEffect(() => {
+    if (!booted || !file) return
+    const id = setTimeout(() => { void saveDraft(fullBrief(), plan).catch(() => undefined) }, 500)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, brief, projectName, booted, file])
+  const makePlan = (words: DraftPlan['transcript']['words'], source: { kind: 'whisper' | 'captions'; model: string | null; precise: boolean }, targetOverride?: number | null) => {
+    const goals = parseBrief(brief.text)
+    if (targetOverride !== undefined) goals.targetSeconds = targetOverride
+    return buildPlan({ words, duration, goals, source, options: plan ? { pauseThreshold: plan.options.pauseThreshold } : undefined })
+  }
+  const cancelDraft = () => jobAbort.current?.abort()
+  const analyze = async (model: string) => {
+    if (!file || !hasVideo || ai) return
+    const ac = new AbortController()
+    jobAbort.current = ac
+    setDraftError(null)
+    setAi({ pct: null, label: 'Starting…' })
+    try {
+      const tr = await transcribe(file, 0, duration, model, (pct, label) => setAi({ pct, label }), ac.signal)
+      const next = makePlan(tr.words, { kind: 'whisper', model, precise: tr.precise })
+      changePlan(next)
+      setView('draft')
+      if (viewRef.current !== 'draft') info('Your first draft is ready. Open the Draft tab to review it.')
+    } catch (e) {
+      if (isAbort(e)) info('Transcription cancelled. Nothing was changed.')
+      else setDraftError(`Transcription failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally { setAi(null); jobAbort.current = null }
+  }
+  const draftFromCaptions = () => {
+    const words = [...captions].sort((a, b) => a.start - b.start).flatMap((c) => captionWords(c))
+    if (words.length < 5) { setDraftError('The captions in this project have too few words to build a draft from.'); return }
+    setDraftError(null)
+    changePlan(makePlan(words, { kind: 'captions', model: null, precise: captions.every((c) => c.timing === 'word') }))
+  }
+  const rebuildPlan = (target: number | null) => { if (plan) changePlan(makePlan(plan.transcript.words, { kind: plan.transcript.kind, model: plan.transcript.model, precise: plan.transcript.precise }, target)) }
+
+  const applyPlan = () => {
+    if (!plan) return
+    const edit = buildClips(plan)
+    if (!edit.clips.length) { err('Accept at least one suggestion first.'); return }
+    const rs = edit.clips.map((c) => ({ start: c.start, end: c.end }))
+    setClips(edit.clips)
+    setSelClipId(edit.clips[0].id)
+    setTrim({ start: Math.min(...rs.map((r) => r.start)), end: Math.max(...rs.map((r) => r.end)) })
+    setCanvas((c) => ({ ...c, aspect: brief.format }))
+    let added = 0
+    if (plan.options.captions) {
+      const fresh = captionsForRanges(plan.transcript.words, rs, plan.goals.wordsPerCaption ?? density)
+      added = fresh.length
+      setCaptions((cs) => mergeDraftCaptions(cs, fresh))
+      if (plan.goals.emphasizeKeywords) setStyle((st) => ({ ...st, autoEmphasis: true }))
+    }
+    changePlan({ ...plan, appliedAt: Date.now() })
+    seek(rs[0].start)
+    setView('editor')
+    setTool('draft')
+    info(`Applied ${edit.clips.length} clip${edit.clips.length === 1 ? '' : 's'} (${fmt(edit.length)})${plan.options.captions ? ` and ${added} captions` : ''}.${edit.skippedPauses ? ` Cut ${edit.skippedPauses} long pause${edit.skippedPauses === 1 ? '' : 's'}.` : ''} Press play to preview; undo with Ctrl+Z.`)
+  }
+  const regenCaptions = () => {
+    if (!plan || !clipMode) return
+    const fresh = captionsForRanges(plan.transcript.words, ranges, plan.goals.wordsPerCaption ?? density)
+    setCaptions((cs) => mergeDraftCaptions(cs, fresh))
+    info(`Rebuilt ${fresh.length} draft captions for the current clips. Captions you edited or typed were kept.`)
+  }
+
+  // ---------- project start / restore (landing page hand-off, or a refresh at /editor) ----------
+  const openVideo = (f: File) => {
+    loadFile(f)
+    setClips([]); setSelClipId(null); changePlan(null); setView('editor'); setDraftError(null)
+    clearAutosave()
+    void storeProject(f, { name: f.name.replace(/\.[^.]+$/, ''), ...brief }).catch(() => info('Could not keep a copy of this video in browser storage, so a refresh will need you to open it again.'))
+  }
+  useEffect(() => {
+    if (boot.current) return
+    boot.current = true
+    void (async () => {
+      const h = takeHandoff()
+      if (h) {
+        loadFile(h.file)
+        setProjectName(h.brief.name || h.file.name.replace(/\.[^.]+$/, ''))
+        setBrief({ text: h.brief.text, format: h.brief.format })
+        setCanvas((c) => ({ ...c, aspect: h.brief.format }))
+        setRecover(null)
+        setView('draft')
+        if (h.persistError) info(`Your video could not be kept in browser storage (${h.persistError}). Editing works, but a refresh will need you to open it again.`)
+      } else {
+        const ses = await loadSession()
+        if (ses) {
+          loadFile(ses.file)
+          setProjectName(ses.brief.name)
+          setBrief({ text: ses.brief.text, format: ses.brief.format })
+          setPlan(ses.plan)
+          const saved = readAutosave()
+          if (saved && saved.videoName === ses.file.name) { applyProject(saved); setRecover(null) }
+          if (ses.plan && !ses.plan.appliedAt) setView('draft')
+        }
+      }
+      setBooted(true)
+    })()
+  }, [])
+
   // ---------- keyboard ----------
   const rate = useRef(1)
   const actions = useRef({ togglePlay, setIn, setOut, undo, redo, seek, del: () => { if (selId) deleteCaption(selId) }, time })
@@ -331,6 +490,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable) return // never while typing
+      if (viewRef.current === 'draft') return
       const a = actions.current
       const v = videoRef.current
       if (e.metaKey || e.ctrlKey) {
@@ -370,23 +530,34 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', h)
   }, [file, captions.length])
 
-  // ---------- autosave (debounced; never stores the video; reports failures honestly) ----------
-  const pendingRecover = !!recover && captions.length === 0
+  // ---------- autosave (debounced; never stores the video itself; reports failures honestly) ----------
+  const pendingRecover = !!recover && captions.length === 0 && clips.length === 0
+  const snapshot = (): Saved => ({ version: 1, savedAt: Date.now(), projectName, videoName: file?.name ?? null, trim, captions, style, presetId, canvas, density, clips, brief })
+  const latest = useRef({ snapshot, active: false })
+  latest.current = { snapshot, active: !pendingRecover && !!booted && (!!file || captions.length > 0 || clips.length > 0) }
+  const writeSave = () => {
+    try {
+      const data = latest.current.snapshot()
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data))
+      setAsave({ state: 'saved', at: data.savedAt })
+    } catch (e) {
+      const full = e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)
+      setAsave({ state: 'error', msg: full ? 'browser storage is full' : 'browser storage is unavailable' })
+    }
+  }
   useEffect(() => {
-    if (pendingRecover || (!file && !captions.length)) return
+    if (!latest.current.active) return
     setAsave((a) => ({ ...a, state: 'saving' }))
-    const id = setTimeout(() => {
-      try {
-        const data: Saved = { version: 1, savedAt: Date.now(), projectName, videoName: file?.name ?? null, trim, captions, style, presetId, canvas, density }
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data))
-        setAsave({ state: 'saved', at: data.savedAt })
-      } catch (e) {
-        const full = e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)
-        setAsave({ state: 'error', msg: full ? 'browser storage is full' : 'browser storage is unavailable' })
-      }
-    }, 1500)
+    const id = setTimeout(writeSave, 1500)
     return () => clearTimeout(id)
-  }, [captions, style, presetId, trim, canvas, density, projectName, file, pendingRecover])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [captions, style, presetId, trim, canvas, density, projectName, file, pendingRecover, clips, brief, booted])
+  // leaving the page or the route must not lose the last 1.5 s of edits
+  useEffect(() => {
+    const flush = () => { if (latest.current.active) { try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(latest.current.snapshot())) } catch { /* reported by the normal path */ } } }
+    window.addEventListener('pagehide', flush)
+    return () => { window.removeEventListener('pagehide', flush); flush(); abort.current?.abort(); jobAbort.current?.abort() }
+  }, [])
 
   const applyProject = (d: Partial<Saved>) => {
     setCaptions((d.captions ?? []).map(normalizeCaption))
@@ -395,20 +566,23 @@ export default function App() {
     if (d.canvas) setCanvas({ ...DEFAULT_CANVAS, ...d.canvas })
     if (d.density === 1 || d.density === 2 || d.density === 3) setDensity(d.density)
     if (typeof d.projectName === 'string') setProjectName(d.projectName)
+    setClips(sanitizeClips(d.clips, duration, uid))
+    if (d.brief && typeof d.brief.text === 'string') setBrief({ text: d.brief.text, format: (['9:16', '1:1', '16:9'] as const).includes(d.brief.format as OutputFormat) ? d.brief.format : '9:16' })
     if (d.trim && duration > 0) setTrim({ start: clamp(d.trim.start, 0, duration), end: clamp(d.trim.end, 0, duration) })
     else if (d.trim) pendingTrim.current = d.trim
     setSelId(null)
+    setSelClipId(null)
   }
-  const recoverInfo: Recoverable | null = recover ? { videoName: recover.videoName, savedAt: recover.savedAt, count: recover.captions.length } : null
+  const recoverInfo: Recoverable | null = recover ? { videoName: recover.videoName, savedAt: recover.savedAt, count: recover.captions.length || (recover.clips?.length ?? 0) } : null
   const restore = () => { if (recover) { applyProject(recover); info(`Restored ${recover.captions.length} captions.${hasVideo ? '' : ' Now open the video.'}`); setRecover(null) } }
-  const discard = () => { try { localStorage.removeItem(AUTOSAVE_KEY) } catch { /* ignore */ } setRecover(null) }
+  const discard = () => { clearAutosave(); setRecover(null) }
 
   // ---------- export ----------
   const baseName = projectName.trim().replace(/[^\w.-]+/g, '_') || 'cutpilot'
   const doExport = async () => {
     const v = videoRef.current
     if (!v || !hasVideo) return
-    if (trim.end - trim.start < 0.2) { err('The selected range is too short to export.'); return }
+    if (seqLen < 0.2) { err('The edit is too short to export.'); return }
     const ac = new AbortController()
     abort.current = ac
     setNote(null)
@@ -417,7 +591,7 @@ export default function App() {
     rate.current = 1
     try {
       const { blob, ext } = await exportVideo({
-        video: v, start: trim.start, end: trim.end, captions, style, canvas, signal: ac.signal, onProgress: (p) => setExportPct(p),
+        video: v, ranges, captions, style, canvas, signal: ac.signal, onProgress: (p) => setExportPct(p),
       })
       download(blob, `${baseName}-cutpilot.${ext}`)
       info(`Exported ${(blob.size / 1e6).toFixed(1)} MB ${ext.toUpperCase()} at ${outSize.w}×${outSize.h}. Check your downloads folder.`)
@@ -432,9 +606,9 @@ export default function App() {
 
   // ---------- project file save/load ----------
   const saveProject = () => {
-    const data = { app: 'cutpilot', version: 2, videoName: file?.name ?? null, projectName, trim, captions, style, presetId, canvas, density }
+    const data = { app: 'cutpilot', version: 3, videoName: file?.name ?? null, projectName, trim, captions, style, presetId, canvas, density, clips, brief }
     download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `${baseName}.cutpilot.json`)
-    info('Project file saved. It contains captions, style, trim and canvas — not the video, so re-open the same video when you load it.')
+    info('Project file saved. It contains captions, style, trim, clips and canvas — not the video, so re-open the same video when you load it.')
   }
   const loadProject = async (f: File) => {
     try {
@@ -447,7 +621,7 @@ export default function App() {
     }
   }
 
-  const selDur = Math.max(0, trim.end - trim.start)
+  const selDur = seqLen
   const selectFromTimeline = (id: string) => { setSelId(id); setTool('captions') }
   const status = asave.state === 'error' ? `Autosave failed — ${asave.msg}` : asave.state === 'saving' ? 'Saving…'
     : asave.state === 'saved' ? `Autosaved ${new Date(asave.at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Temporary workspace'
@@ -457,6 +631,7 @@ export default function App() {
     { id: 'media', label: 'Media', icon: 'media', title: 'Media', sub: 'Video, canvas and project' },
     { id: 'captions', label: 'Captions', icon: 'captions', title: 'Captions', sub: 'Write, time and position captions' },
     { id: 'styles', label: 'Styles', icon: 'type', title: 'Styles', sub: 'Caption templates and customisation' },
+    { id: 'draft', label: 'Draft', icon: 'clips', title: 'Draft & clips', sub: 'First draft and the clip sequence' },
     { id: 'ai', label: 'AI Tools', icon: 'sparkles', title: 'AI Tools', sub: 'Free, on-device speech to captions' },
   ]
   const curTool = TOOLS.find((t) => t.id === tool)!
@@ -466,16 +641,17 @@ export default function App() {
     <div className="grid h-dvh min-w-[920px] grid-rows-[48px_minmax(0,1fr)] overflow-hidden bg-ink-950"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) loadFile(f) }}>
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) openVideo(f) }}>
       <header className="flex items-center gap-2 border-b border-line bg-ink-900 px-3">
-        <div className="flex w-[56px] items-center justify-center" aria-hidden="true">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-accent-500 text-white"><Icon name="film" size={16} /></span>
-        </div>
-        <span className="font-display text-[15px] font-semibold tracking-tight">CutPilot</span>
+        <Link to="/" aria-label="CutPilot home (your project is kept)" title="Back to the CutPilot home page. Your project is kept." className="flex items-center gap-0 rounded-md focus-visible:outline-2">
+          <span className="flex w-[56px] items-center justify-center"><span className="grid h-7 w-7 place-items-center rounded-md bg-accent-500 text-white"><Icon name="film" size={16} /></span></span>
+          <span className="font-display text-[15px] font-semibold tracking-tight">CutPilot</span>
+        </Link>
         <span className="mx-1 h-4 w-px bg-line" />
         <input aria-label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} spellCheck={false}
           className="h-8 w-44 rounded-md bg-transparent px-2 text-sm text-fg transition-colors hover:bg-ink-800 focus:bg-ink-800 focus:outline-none" />
-        <span title="Captions, style, trim and canvas are autosaved in this browser's storage. The video file is never stored or uploaded. Use Save project for a portable backup."
+        {ai && view === 'editor' && <button onClick={() => setView('draft')} className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-accent-500/50 bg-accent-500/10 px-2.5 py-1 text-[11px] text-fg" title={ai.label}><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-400" />Drafting… open</button>}
+        <span title="Captions, style, trim and canvas are autosaved in this browser's storage. The video is kept in this browser (IndexedDB) so a refresh does not lose it, and is never uploaded. Use Save project for a portable backup."
           className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[11px] text-mute">
           <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{status}
         </span>
@@ -494,7 +670,7 @@ export default function App() {
             <Icon name="download" size={15} />Export
           </button>
         </div>
-        <input ref={fileInput} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) loadFile(f); e.target.value = '' }} />
+        <input ref={fileInput} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openVideo(f); e.target.value = '' }} />
         <input ref={projInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void loadProject(f); e.target.value = '' }} />
       </header>
 
@@ -510,7 +686,7 @@ export default function App() {
           ))}
         </nav>
 
-        <main className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto_auto]">
+        <main className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto_auto_auto]">
           <div className="relative min-h-0 p-4" style={{ background: 'radial-gradient(ellipse at 50% 30%, #14151b 0%, #0a0b0e 75%)' }}>
             <Stage
               videoRef={videoRef} url={url} dims={outSize} canvas={canvas} time={time} frameTick={frameTick} captions={captions} style={style}
@@ -542,19 +718,22 @@ export default function App() {
 
           <div className="flex h-12 items-center gap-2 border-t border-line bg-ink-900 px-4">
             <IconButton icon={playing ? 'pause' : 'play'} label={playing ? 'Pause (Space)' : 'Play (Space)'} onClick={togglePlay} disabled={!hasVideo || exporting} size="lg" tone="accent" />
-            <IconButton icon="loop" label="Play selected range only" onClick={playSelection} disabled={!hasVideo || exporting} />
+            <IconButton icon="loop" label={clipMode ? 'Play the edit from the start' : 'Play selected range only'} onClick={playSelection} disabled={!hasVideo || exporting} />
             <span className="ml-2 text-sm tabular-nums text-fg">{fmt(time)}<span className="text-dim"> / {fmt(duration)}</span></span>
             <span className="ml-auto flex items-center gap-1.5">
-              <button className={btn} onClick={setIn} disabled={!hasVideo || exporting} title="Set trim start to playhead (I)"><Icon name="markIn" size={15} />In</button>
-              <button className={btn} onClick={setOut} disabled={!hasVideo || exporting} title="Set trim end to playhead (O)"><Icon name="markOut" size={15} />Out</button>
-              <IconButton icon="reset" label="Reset trim to full video" onClick={() => setTrim({ start: 0, end: duration })} disabled={!hasVideo || exporting} />
-              <span className="ml-2 min-w-[132px] text-right text-xs tabular-nums text-mute" title="Length that will be exported">Export length <span className="text-fg">{fmt(selDur)}</span></span>
+              <button className={btn} onClick={setIn} disabled={!hasVideo || exporting || (clipMode && !selClip)} title={clipMode ? 'Set the selected clip\'s start to the playhead (I)' : 'Set trim start to playhead (I)'}><Icon name="markIn" size={15} />In</button>
+              <button className={btn} onClick={setOut} disabled={!hasVideo || exporting || (clipMode && !selClip)} title={clipMode ? 'Set the selected clip\'s end to the playhead (O)' : 'Set trim end to playhead (O)'}><Icon name="markOut" size={15} />Out</button>
+              <IconButton icon="reset" label={clipMode ? 'Reset trim (clips are active — manage them in the Draft tab)' : 'Reset trim to full video'} onClick={() => setTrim({ start: 0, end: duration })} disabled={!hasVideo || exporting || clipMode} />
+              <span className="ml-2 min-w-[132px] text-right text-xs tabular-nums text-mute" title={clipMode ? `Length of all ${clips.length} clips together` : 'Length that will be exported'}>Export length <span className="text-fg">{fmt(selDur)}</span></span>
             </span>
           </div>
+
+          <SequenceBar clips={clips} ranges={ranges} time={time} selId={selClipId} disabled={!hasVideo || exporting} onSelect={selectClip} onSeek={seekSource} />
 
           <Timeline
             duration={duration} time={time} trim={trim} captions={captions} selId={selId} disabled={!hasVideo || exporting} label={file?.name ?? ''} url={url}
             onSeek={seek} onTrim={setTrim} onSelect={selectFromTimeline} onUpdate={updateCaption}
+            clips={clips} selClipId={selClipId} onSelectClip={selectClip} onClipRange={updateClipRange}
           />
         </main>
 
@@ -587,10 +766,24 @@ export default function App() {
                 onScope={setScope} onApply={applyTemplate} onPatch={patchStyle} onReset={resetStyle} onUseGlobal={useGlobalStyle} onSetAllY={setAllY}
               />
             )}
-            {tool === 'ai' && <AiPanel hasVideo={hasVideo} ai={ai} selection={selDur} density={density} lastRun={lastRun} onDensity={changeDensity} onTranscribe={(m) => void runTranscribe(m)} />}
+            {tool === 'draft' && (
+              <DraftPanel clips={clips} ranges={ranges} selId={selClipId} hasPlan={!!plan} hasVideo={hasVideo} busy={exporting} planApplied={!!plan?.appliedAt}
+                onOpenDraft={() => setView('draft')} onSelect={(id) => { selectClip(id); const c = clips.find((k) => k.id === id); if (c) seekSource(c.start) }}
+                onMove={moveClip} onRemove={removeClip} onRange={updateClipRange} onClear={clearClips} onRegenCaptions={regenCaptions} />
+            )}
+            {tool === 'ai' && <AiPanel hasVideo={hasVideo} ai={ai} selection={Math.max(0, trim.end - trim.start)} density={density} lastRun={lastRun} onDensity={changeDensity} onTranscribe={(m) => void runTranscribe(m)} />}
           </div>
         </aside>
       </div>
+
+      {view === 'draft' && (
+        <DraftScreen
+          url={url} hasVideo={hasVideo} loading={loading || (!hasVideo && !!file)} duration={duration} fileName={file?.name ?? ''} largeFile={(file?.size ?? 0) > 500e6}
+          brief={brief} onBrief={setBrief} plan={plan} onPlan={changePlan} job={ai} error={draftError} captionCount={captions.length} applied={!!plan?.appliedAt}
+          onAnalyze={(m) => void analyze(m)} onUseCaptions={draftFromCaptions} onCancel={cancelDraft} onRebuild={rebuildPlan}
+          onDiscardPlan={() => { changePlan(null); setDraftError(null) }} onApply={applyPlan} onClose={() => setView('editor')}
+        />
+      )}
 
       {showKeys && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={() => setShowKeys(false)}>
@@ -607,7 +800,7 @@ export default function App() {
                 </div>
               ))}
             </dl>
-            <p className="mt-3 text-[11px] leading-relaxed text-dim">Shortcuts are ignored while you type in a text field. There is no clip-splitting shortcut: CutPilot edits one trimmed range, so splitting isn't supported yet.</p>
+            <p className="mt-3 text-[11px] leading-relaxed text-dim">Shortcuts are ignored while you type in a text field. There is no clip-splitting shortcut yet: clips come from an applied first draft. With clips, I / O move the selected clip's edges.</p>
           </div>
         </div>
       )}

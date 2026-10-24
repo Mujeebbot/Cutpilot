@@ -1,4 +1,8 @@
-import type { Word } from '../types'
+import type { Transcript } from './transcribe.core'
+import { SAMPLE_RATE } from './transcribe.core'
+import type { WorkerOut } from './transcribe.worker'
+
+export type { Transcript } from './transcribe.core'
 
 export const MODELS = [
   { id: 'Xenova/whisper-tiny.en', label: 'Whisper tiny (English, ~40 MB)' },
@@ -7,31 +11,50 @@ export const MODELS = [
 ]
 
 type Progress = (pct: number | null, label: string) => void
-type Chunk = { text: string; timestamp: [number, number | null] }
 
-export interface Transcript {
-  words: Word[]
-  /** true = every word has its own timestamp from Whisper; false = only segment timestamps, words approximated. */
-  precise: boolean
-}
+export const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
+const abortError = () => new DOMException('Transcription cancelled', 'AbortError')
+class WorkerUnavailable extends Error {}
 
-const splitWords = (text: string, s: number, e: number): Word[] => {
-  const toks = text.trim().split(/\s+/).filter(Boolean)
-  const total = toks.reduce((a, w) => a + w.length + 1, 0) || 1
-  let acc = 0
-  return toks.map((t) => {
-    const w: Word = { t, s: s + ((e - s) * acc) / total, e: s + ((e - s) * (acc + t.length + 1)) / total, a: true }
-    acc += t.length + 1
-    return w
+/** Runs the shared Whisper engine in a module Web Worker. Rejects with AbortError when `signal` aborts (the worker is terminated). */
+function inWorker(seg: Float32Array, start: number, end: number, model: string, onProgress: Progress, signal?: AbortSignal): Promise<Transcript> {
+  return new Promise((resolve, reject) => {
+    let worker: Worker
+    try {
+      worker = new Worker(new URL('./transcribe.worker.ts', import.meta.url), { type: 'module' })
+    } catch {
+      reject(new WorkerUnavailable('Web Workers are not available'))
+      return
+    }
+    let ready = false, finished = false
+    const finish = (settle: () => void) => {
+      if (finished) return
+      finished = true
+      signal?.removeEventListener('abort', onAbort)
+      worker.terminate()
+      settle()
+    }
+    const onAbort = () => finish(() => reject(abortError()))
+    signal?.addEventListener('abort', onAbort)
+    worker.onmessage = (e: MessageEvent<WorkerOut>) => {
+      const m = e.data
+      if (m.type === 'ready') ready = true
+      else if (m.type === 'progress') onProgress(m.pct, m.label)
+      else if (m.type === 'done') finish(() => resolve(m.result))
+      else if (m.type === 'error') finish(() => reject(new Error(m.message)))
+    }
+    worker.onerror = (e) => finish(() => reject(ready ? new Error(e.message || 'The transcription worker stopped unexpectedly.') : new WorkerUnavailable(e.message)))
+    worker.postMessage({ type: 'run', audio: seg, start, end, model })
   })
 }
 
 /**
  * Local, free speech-to-text via Transformers.js (Whisper in the browser, WASM). No API key; audio stays on the device.
+ * Audio is decoded here (AudioContext only exists on the main thread); the model runs in a Web Worker so the interface never freezes.
  * First asks Whisper for word-level timestamps (cross-attention alignment). If the model/runtime can't provide them
  * it falls back to segment timestamps and marks every word as approximated.
  */
-export async function transcribe(file: File, start: number, end: number, model: string, onProgress: Progress): Promise<Transcript> {
+export async function transcribe(file: File, start: number, end: number, model: string, onProgress: Progress, signal?: AbortSignal): Promise<Transcript> {
   onProgress(null, 'Decoding audio…')
   const actx = new AudioContext()
   let decoded: AudioBuffer
@@ -42,8 +65,9 @@ export async function transcribe(file: File, start: number, end: number, model: 
   } finally {
     void actx.close()
   }
+  if (signal?.aborted) throw abortError()
 
-  const sr = 16000
+  const sr = SAMPLE_RATE
   const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * sr)), sr)
   const src = off.createBufferSource()
   src.buffer = decoded
@@ -52,38 +76,16 @@ export async function transcribe(file: File, start: number, end: number, model: 
   const mono = (await off.startRendering()).getChannelData(0)
   const seg = mono.slice(Math.floor(start * sr), Math.floor(end * sr))
   if (seg.length < sr / 2) throw new Error('The selected range is too short to transcribe.')
+  if (signal?.aborted) throw abortError()
 
-  const tf = (await import('@huggingface/transformers')) as unknown as { pipeline: (...a: any[]) => Promise<any> }
-  const asr = await tf.pipeline('automatic-speech-recognition', model, {
-    progress_callback: (p: { status: string; progress?: number; file?: string }) => {
-      if (p.status === 'progress' && typeof p.progress === 'number') onProgress(p.progress, `Downloading model: ${p.file ?? ''}`)
-    },
-  })
-
-  onProgress(null, 'Transcribing on this device… this can take a while')
-  const opts = { chunk_length_s: 30, stride_length_s: 5 }
-  const first = (o: any): { chunks: Chunk[]; text: string } => { const r = Array.isArray(o) ? o[0] : o; return { chunks: r?.chunks ?? [], text: r?.text ?? '' } }
-
-  // 1) word-level timestamps
   try {
-    const { chunks } = first(await asr(seg, { ...opts, return_timestamps: 'word' }))
-    const words: Word[] = chunks
-      .map((c) => ({ t: (c.text ?? '').trim(), s: start + (c.timestamp?.[0] ?? NaN), e: start + (c.timestamp?.[1] ?? (c.timestamp?.[0] ?? NaN) + 0.3) }))
-      .filter((w) => w.t && Number.isFinite(w.s) && Number.isFinite(w.e))
-    if (words.length) return { words, precise: true }
-  } catch {
-    /* fall through to segment timestamps */
+    return await inWorker(seg, start, end, model, onProgress, signal)
+  } catch (e) {
+    if (!(e instanceof WorkerUnavailable)) throw e
   }
-
-  // 2) segment-level timestamps, words approximated inside each segment
-  const { chunks, text } = first(await asr(seg, { ...opts, return_timestamps: true }))
-  const words: Word[] = []
-  for (const c of chunks) {
-    const s = start + (c.timestamp?.[0] ?? 0)
-    const e = start + (c.timestamp?.[1] ?? (c.timestamp?.[0] ?? 0) + 2)
-    words.push(...splitWords(c.text ?? '', s, Math.max(e, s + 0.4)))
-  }
-  if (!words.length && text.trim()) words.push(...splitWords(text, start, end))
-  if (!words.length) throw new Error('No speech was detected in the selected range.')
-  return { words, precise: false }
+  // Fallback: same engine on the main thread (the page will be sluggish while it runs and it cannot be interrupted mid-run).
+  const { runTranscription } = await import('./transcribe.engine')
+  const result = await runTranscription(seg, start, end, model, { onProgress })
+  if (signal?.aborted) throw abortError()
+  return result
 }
