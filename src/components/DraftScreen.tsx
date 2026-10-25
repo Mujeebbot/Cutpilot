@@ -9,6 +9,7 @@ import { MODELS } from '../lib/transcribe'
 import { fmt } from '../lib/util'
 import { btn, btnPrimary, Field, input, Segmented, Toggle } from './ui'
 import { Icon } from './icons'
+import { LogoMark } from './Logo'
 import { TimeField } from './TimeField'
 import { Link } from '../lib/router'
 
@@ -251,7 +252,7 @@ export function DraftScreen(p: Props) {
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-ink-950" role="region" aria-label="First draft">
       <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line bg-ink-900/95 px-4 backdrop-blur">
-        <Link to="/" aria-label="CutPilot home" className="flex items-center gap-2 font-display text-[15px] font-semibold tracking-tight"><span className="grid h-7 w-7 place-items-center rounded-md bg-accent-500 text-white"><Icon name="film" size={16} /></span><span className="hidden sm:inline">CutPilot</span></Link>
+        <Link to="/" aria-label="CutPilot home" className="flex items-center gap-2 font-display text-[15px] font-semibold tracking-tight"><LogoMark size={28} /><span className="hidden sm:inline">CutPilot</span></Link>
         <span className="h-4 w-px bg-line" />
         <h1 ref={head} tabIndex={-1} className="min-w-0 flex-1 truncate font-display text-sm font-semibold focus:outline-none">{plan ? 'Review your first draft' : 'Prepare your first draft'}<span className="ml-2 font-normal text-mute">{p.fileName}</span></h1>
         <button className={btn} onClick={p.onClose}>{plan ? 'Back to editor' : 'Open editor'}</button>

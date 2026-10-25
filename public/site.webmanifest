@@ -1,0 +1,14 @@
+{
+  "name": "CutPilot",
+  "short_name": "CutPilot",
+  "description": "Browser-based video editing studio with AI-assisted first draft",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121316",
+  "theme_color": "#8b7cf6",
+  "icons": [
+    { "src": "/favicon-32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -3,6 +3,7 @@ import { Link, navigate } from '../lib/router'
 import { TEMPLATES } from '../lib/templates'
 import { peekSession } from '../lib/session'
 import { Icon } from '../components/icons'
+import { LogoMark, LogoLockup } from '../components/Logo'
 import { NewProjectDialog } from '../components/NewProjectDialog'
 import { EditorMock } from '../components/landing/EditorMock'
 import { CaptionFrame } from '../components/landing/CaptionFrame'
@@ -43,7 +44,8 @@ export default function Landing() {
       <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-graphite/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <Link to="/" aria-label="CutPilot home" className="flex items-center gap-2.5 font-title text-lg font-extrabold tracking-tight">
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-accent-500 text-white"><Icon name="film" size={17} /></span>CutPilot
+            <LogoMark size={32} />
+            <span>CutPilot</span>
           </Link>
           <nav aria-label="Primary" className="ml-6 hidden items-center gap-1 md:flex">
             {NAV.map((n) => <a key={n.id} href={`#${n.id}`} onClick={jump(n.id)} className="rounded-md px-3 py-2 text-sm text-bone-dim transition-colors hover:text-bone">{n.label}</a>)}
@@ -196,7 +198,7 @@ export default function Landing() {
       <footer className="border-t border-white/[0.07]">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 text-sm text-bone-dim sm:px-6 md:flex-row md:items-start md:justify-between">
           <div className="max-w-[40ch]">
-            <p className="font-title text-base font-extrabold text-bone">CutPilot</p>
+            <LogoLockup size={24} textClassName="text-base font-extrabold text-bone" />
             <p className="mt-2 leading-relaxed">A browser-based editing studio where AI prepares the first draft and you make every final decision.</p>
           </div>
           <nav aria-label="Footer" className="flex flex-wrap gap-x-8 gap-y-3">

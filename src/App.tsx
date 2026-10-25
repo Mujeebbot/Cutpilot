@@ -11,6 +11,7 @@ import { AiPanel, CaptionsPanel, MediaPanel, RecoverCard, StylesPanel } from './
 import type { Recoverable } from './components/Panels'
 import { Icon } from './components/icons'
 import type { IconName } from './components/icons'
+import { LogoMark } from './components/Logo'
 import { btn, btnPrimary, IconButton } from './components/ui'
 import { appendEmoji, captionWords, normalizeCaption, normalizeStyle, regroup, groupWords } from './lib/captions'
 import { chunkText, looksLikeSrt, parseSrt, spread, toSrt } from './lib/srt'
@@ -644,7 +645,7 @@ export default function App() {
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) openVideo(f) }}>
       <header className="flex items-center gap-2 border-b border-line bg-ink-900 px-3">
         <Link to="/" aria-label="CutPilot home (your project is kept)" title="Back to the CutPilot home page. Your project is kept." className="flex items-center gap-0 rounded-md focus-visible:outline-2">
-          <span className="flex w-[56px] items-center justify-center"><span className="grid h-7 w-7 place-items-center rounded-md bg-accent-500 text-white"><Icon name="film" size={16} /></span></span>
+          <span className="flex w-[56px] items-center justify-center"><LogoMark size={28} /></span>
           <span className="font-display text-[15px] font-semibold tracking-tight">CutPilot</span>
         </Link>
         <span className="mx-1 h-4 w-px bg-line" />

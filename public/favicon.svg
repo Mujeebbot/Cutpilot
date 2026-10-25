@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- CutPilot App Icon & Favicon -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#181A20" />
+      <stop offset="100%" stop-color="#0F1014" />
+    </linearGradient>
+    <linearGradient id="clipLeft" x1="9" y1="8" x2="14" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9C8EFF" />
+      <stop offset="100%" stop-color="#7B68EE" />
+    </linearGradient>
+    <linearGradient id="clipRight" x1="16" y1="12" x2="24" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D4CCFF" />
+      <stop offset="100%" stop-color="#AEA0FF" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark charcoal tile -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)" />
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="6.25" stroke="#2B2F38" stroke-width="1.25" />
+
+  <!-- Left timeline clip (Source) -->
+  <path d="M 9.5 9 C 9 9.3 8.75 9.8 8.75 10.4 V 21.6 C 8.75 22.2 9 22.7 9.5 23 L 14 20.8 V 11.2 Z" fill="url(#clipLeft)" />
+
+  <!-- Right timeline clip (Cut / Draft) -->
+  <path d="M 16 11.9 L 23.5 15.4 C 24.1 15.7 24.1 16.3 23.5 16.6 L 16 20.1 Z" fill="url(#clipRight)" />
+
+  <!-- Playhead marker & needle at the cut point -->
+  <path d="M 12.5 4.5 H 17.5 V 7 L 15 9.2 L 12.5 7 Z" fill="#EDE9FE" />
+  <line x1="15" y1="9.2" x2="15" y2="23" stroke="#EDE9FE" stroke-width="1.25" stroke-linecap="round" opacity="0.95" />
+</svg>
