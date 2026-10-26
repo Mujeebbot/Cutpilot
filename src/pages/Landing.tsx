@@ -567,13 +567,25 @@ export default function Landing() {
           id="templates"
           tabIndex={-1}
           aria-labelledby="tmpl-h"
-          className="py-24 focus:outline-none sm:py-32"
+          className="relative overflow-hidden py-24 focus:outline-none sm:py-32"
           style={{
             background:
               'radial-gradient(ellipse 700px 500px at 80% 50%, rgba(255, 225, 77, 0.08), transparent 70%)',
           }}
         >
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {/* Studio Light Atmosphere */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="/media/light-shafts.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="h-full w-full object-cover object-top opacity-20 mix-blend-screen"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f] via-transparent to-[#0b0c0f]" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
                 <h2 id="tmpl-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
@@ -717,13 +729,25 @@ export default function Landing() {
           id="compare"
           tabIndex={-1}
           aria-labelledby="cmp-h"
-          className="py-24 focus:outline-none sm:py-32"
+          className="relative overflow-hidden py-24 focus:outline-none sm:py-32"
           style={{
             background:
               'radial-gradient(ellipse 600px 450px at 20% 35%, rgba(255, 225, 77, 0.08), transparent 70%)',
           }}
         >
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {/* Audio Waveform Ribbon (On-Device Speech & Signal Atmosphere) */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="/media/audio-waveform-ribbon.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="h-full w-full object-cover object-center opacity-30 mix-blend-screen"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f] via-transparent to-[#0b0c0f]" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
             <div className="max-w-2xl">
               <h2 id="cmp-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
                 Why local-first
@@ -876,17 +900,28 @@ export default function Landing() {
         </section>
 
         {/* ------------------------------------------------------------------ FINAL CTA */}
-        <section aria-labelledby="cta-h" className="relative overflow-hidden py-24 text-center sm:py-32">
-          {/* Volumetric Light Shafts Texture */}
+        <section aria-labelledby="cta-h" className="relative overflow-hidden py-28 text-center sm:py-36">
+          {/* Ambient Brand Wave Glow (Violet & Warm Yellow Flow) */}
           <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
             <img
-              src="/media/light-shafts.png"
+              src="/media/cta-gradient-glow.png"
               alt=""
               aria-hidden="true"
               loading="lazy"
-              className="h-full w-full object-cover object-center opacity-25 mix-blend-screen"
+              className="h-full w-full object-cover object-center opacity-65 mix-blend-screen"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f] via-transparent to-[#0b0c0f]" />
+          </div>
+
+          {/* Anamorphic Golden Laser Flare (Cinematic Horizon Line) */}
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 z-0 flex items-center justify-center overflow-hidden">
+            <img
+              src="/media/anamorphic-gold-flare.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="h-44 w-full max-w-4xl object-contain opacity-75 mix-blend-screen"
+            />
           </div>
 
           <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
