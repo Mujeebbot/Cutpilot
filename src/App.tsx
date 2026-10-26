@@ -30,6 +30,21 @@ import { parseBrief } from './lib/draft/brief'
 import { buildClips, captionsForRanges, mergeDraftCaptions } from './lib/draft/apply'
 import { AUTOSAVE_KEY, clearAutosave, clearSession, loadSession, saveDraft, saveProject as storeProject, takeHandoff } from './lib/session'
 import { Link, navigate } from './lib/router'
+import { useAuth } from './context/AuthContext'
+import { UserMenu } from './components/UserMenu'
+import { AuthModal } from './components/AuthModal'
+import {
+  createNewProject,
+  getProject,
+  saveProject as persistProject,
+  storeProjectMedia,
+  loadProjectMedia,
+  listProjects,
+  generateProjectId,
+  setProjectStatus,
+  type Project,
+  type ProjectMetadata,
+} from './lib/projects'
 
 type Note = { kind: 'error' | 'info'; text: string } | null
 type Snap = { captions: Caption[]; style: CaptionStyle; trim: Trim; canvas: CanvasSettings; presetId: string | null; clips: Clip[] }
@@ -111,6 +126,13 @@ export default function App() {
   const [asave, setAsave] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; at?: number; msg?: string }>({ state: 'idle' })
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
+  const { user } = useAuth()
+  const [projectId, setProjectId] = useState<string>(() => new URLSearchParams(window.location.search).get('project') || generateProjectId())
+  const [relinkPrompt, setRelinkPrompt] = useState<{ name: string; size?: number } | null>(null)
+  const createdAtRef = useRef<number>(Date.now())
+  const curStatusRef = useRef<'draft' | 'completed'>('draft')
+  const existingThumbRef = useRef<string | null>(null)
+  const existingVideoMetaRef = useRef<ProjectMetadata | null>(null)
 
   useEffect(() => { document.documentElement.classList.add('app-lock'); return () => document.documentElement.classList.remove('app-lock') }, [])
   const err = (text: string) => setNote({ kind: 'error', text })
@@ -484,33 +506,91 @@ export default function App() {
   )
 
   const newProject = () => {
-    if (confirm('Start a new project? Any unsaved edits in this workspace will be cleared.')) {
-      clearAutosave()
-      clearSession()
-      navigate('/')
-    }
+    navigate('/dashboard')
   }
 
-  // ---------- project start / restore (landing page hand-off, or a refresh at /editor) ----------
+  // ---------- project start / restore (landing page hand-off, or multi-project persistent store) ----------
   const openVideo = (f: File) => {
     loadFile(f)
-    setClips([]); setSelClipId(null); changePlan(null); setView('editor'); setDraftError(null)
+    setClips([])
+    setSelClipId(null)
+    changePlan(null)
+    setView('editor')
+    setDraftError(null)
+    setRelinkPrompt(null)
     clearAutosave()
-    void storeProject(f, { name: f.name.replace(/\.[^.]+$/, ''), ...brief }).catch(() => info('Could not keep a copy of this video in browser storage, so a refresh will need you to open it again.'))
+    void storeProjectMedia(projectId, f).catch(() => info('Could not keep a copy of this video in local storage, so a refresh will need you to open it again.'))
   }
+
   useEffect(() => {
     if (boot.current) return
     boot.current = true
     void (async () => {
+      const params = new URLSearchParams(window.location.search)
+      let targetId = params.get('project')
       const h = takeHandoff()
+
       if (h) {
+        const newId = targetId || generateProjectId()
+        setProjectId(newId)
+        history.replaceState(null, '', `/editor?project=${newId}`)
         loadFile(h.file)
-        setProjectName(h.brief.name || h.file.name.replace(/\.[^.]+$/, ''))
+        const pName = h.brief.name || h.file.name.replace(/\.[^.]+$/, '')
+        setProjectName(pName)
         setBrief({ text: h.brief.text, format: h.brief.format })
         setCanvas((c) => ({ ...c, aspect: h.brief.format }))
         setRecover(null)
         setView('draft')
-        if (h.persistError) info(`Your video could not be kept in browser storage (${h.persistError}). Editing works, but a refresh will need you to open it again.`)
+        await storeProjectMedia(newId, h.file)
+        const newProj = createNewProject({ id: newId, userId: user?.id, name: pName, file: h.file })
+        newProj.state.brief = { text: h.brief.text, format: h.brief.format }
+        newProj.state.canvas.aspect = h.brief.format
+        await persistProject(newProj, user?.id)
+        setBooted(true)
+        return
+      }
+
+      if (!targetId) {
+        const list = await listProjects(user?.id)
+        if (list.length > 0) {
+          targetId = list[0].id
+        } else {
+          targetId = generateProjectId()
+        }
+        history.replaceState(null, '', `/editor?project=${targetId}`)
+      }
+
+      setProjectId(targetId)
+      const existing = await getProject(targetId)
+      if (existing) {
+        createdAtRef.current = existing.createdAt
+        curStatusRef.current = existing.status
+        existingThumbRef.current = existing.thumbnail ?? null
+        existingVideoMetaRef.current = existing.videoMeta ?? null
+
+        setProjectName(existing.name)
+        const s = existing.state
+        setCaptions((s.captions ?? []).map(normalizeCaption))
+        setStyle(normalizeStyle(s.style))
+        setPresetId(s.presetId ?? null)
+        if (s.canvas) setCanvas({ ...DEFAULT_CANVAS, ...s.canvas })
+        if (typeof s.density === 'number' && s.density >= 1 && s.density <= 10) setDensity(Math.round(s.density))
+        if (s.brief && typeof s.brief.text === 'string') setBrief({ text: s.brief.text, format: (['9:16', '1:1', '16:9'] as const).includes(s.brief.format as OutputFormat) ? s.brief.format : '9:16' })
+        if (s.plan) setPlan(s.plan)
+        if (s.trim) pendingTrim.current = s.trim
+        if (s.clips) setClips(s.clips)
+
+        const media = await loadProjectMedia(targetId)
+        if (media && media instanceof Blob) {
+          const fileObj = media instanceof File ? media : new File([media], existing.videoMeta?.name || 'video.mp4', { type: media.type || 'video/mp4' })
+          loadFile(fileObj)
+        } else if (existing.videoMeta) {
+          setRelinkPrompt({ name: existing.videoMeta.name, size: existing.videoMeta.size })
+          info(`Project "${existing.name}" restored. Reconnect "${existing.videoMeta.name}" to resume editing.`)
+        }
+        if (existing.state.plan && !existing.state.plan.appliedAt) {
+          setView('draft')
+        }
       } else {
         const ses = await loadSession()
         if (ses) {
@@ -525,7 +605,7 @@ export default function App() {
       }
       setBooted(true)
     })()
-  }, [])
+  }, [user])
 
   // ---------- keyboard ----------
   const rate = useRef(1)
@@ -581,14 +661,63 @@ export default function App() {
   const snapshot = (): Saved => ({ version: 1, savedAt: Date.now(), projectName, videoName: file?.name ?? null, trim, captions, style, presetId, canvas, density, clips, brief })
   const latest = useRef({ snapshot, active: false })
   latest.current = { snapshot, active: !pendingRecover && !!booted && (!!file || captions.length > 0 || clips.length > 0) }
-  const writeSave = () => {
+  const writeSave = async () => {
     try {
       const data = latest.current.snapshot()
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data))
+
+      if (projectId) {
+        let thumbnail: string | null = null
+        const canvasEl = document.querySelector('canvas')
+        if (canvasEl && hasVideo) {
+          try {
+            thumbnail = canvasEl.toDataURL('image/jpeg', 0.5)
+            existingThumbRef.current = thumbnail
+          } catch {
+            // ignore canvas taint
+          }
+        }
+
+        const proj: Project = {
+          id: projectId,
+          userId: user?.id ?? null,
+          name: projectName,
+          status: curStatusRef.current,
+          createdAt: createdAtRef.current,
+          updatedAt: Date.now(),
+          lastEditedAt: Date.now(),
+          thumbnail: thumbnail || existingThumbRef.current,
+          videoMeta: file
+            ? {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                duration,
+                width: dims.w,
+                height: dims.h,
+              }
+            : existingVideoMetaRef.current,
+          videoStorage: { kind: 'indexeddb', key: projectId },
+          state: {
+            trim,
+            clips,
+            captions,
+            style,
+            presetId,
+            canvas,
+            density,
+            brief,
+            plan,
+          },
+        }
+
+        await persistProject(proj, user?.id)
+      }
+
       setAsave({ state: 'saved', at: data.savedAt })
     } catch (e) {
       const full = e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)
-      setAsave({ state: 'error', msg: full ? 'browser storage is full' : 'browser storage is unavailable' })
+      setAsave({ state: 'error', msg: full ? 'storage is full' : 'storage is unavailable' })
     }
   }
   useEffect(() => {
@@ -745,9 +874,13 @@ export default function App() {
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) openVideo(f) }}>
       <header className="flex h-12 shrink-0 items-center gap-1.5 sm:gap-2 border-b border-line bg-ink-900 px-2 sm:px-3">
-        <Link to="/" aria-label="CutPilot home (your project is kept)" title="Back to the CutPilot home page. Your project is kept." className="flex items-center gap-1 rounded-md focus-visible:outline-2 shrink-0">
+        <Link to="/" aria-label="CutPilot home" title="Back to CutPilot landing page" className="flex items-center gap-1 rounded-md focus-visible:outline-2 shrink-0">
           <span className="flex w-7 sm:w-8 items-center justify-center"><LogoMark size={24} /></span>
           <span className="hidden sm:inline font-display text-[15px] font-semibold tracking-tight">CutPilot</span>
+        </Link>
+        <Link to="/dashboard" aria-label="My Projects" title="Go to My Projects dashboard" className="flex items-center gap-1 rounded-md px-1.5 sm:px-2 py-1 text-xs text-mute hover:bg-ink-800 hover:text-fg transition-colors shrink-0">
+          <Icon name="folder" size={14} className="text-accent-400" />
+          <span className="hidden md:inline font-medium">My Projects</span>
         </Link>
         <span className="h-4 w-px bg-line shrink-0" />
         <input aria-label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} spellCheck={false}
@@ -774,6 +907,8 @@ export default function App() {
             <button className={`${btnPrimary} ml-2 h-8`} onClick={doExport} disabled={!hasVideo || exporting} title="Render the selected range with captions to a video file">
               <Icon name="download" size={15} />Export
             </button>
+            <span className="mx-1.5 h-4 w-px bg-line" />
+            <UserMenu />
           </div>
           {/* Mobile Header Controls */}
           <div className="flex lg:hidden items-center gap-1">
@@ -825,59 +960,92 @@ export default function App() {
                     : 'border-white/10 bg-gradient-to-b from-ink-900/40 via-ink-950/70 to-ink-950/90'
                 }`}
               >
-                <div className="relative flex w-full max-w-md flex-col items-center p-6 text-center">
-                  {recoverInfo && pendingRecover && (
-                    <div className="mb-4 w-full">
-                      <RecoverCard info={recoverInfo} onRestore={restore} onDiscard={discard} />
+                {relinkPrompt ? (
+                  <div className="relative flex w-full max-w-md flex-col items-center p-6 text-center">
+                    <div className="relative mb-4">
+                      <div className="absolute -inset-2 rounded-full bg-amber-500/20 blur-xl" />
+                      <div className="grid h-16 w-16 place-items-center rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-500/20 to-amber-600/10 text-amber-300 shadow-[0_0_30px_rgba(245,184,0,0.25)]">
+                        <Icon name="alert" size={28} />
+                      </div>
                     </div>
-                  )}
-
-                  <div className="relative mb-5">
-                    <div className="absolute -inset-2 rounded-full bg-accent-500/20 blur-xl" />
-                    <button
-                      onClick={() => fileInput.current?.click()}
-                      className="group relative grid h-16 w-16 place-items-center rounded-2xl border border-accent-500/40 bg-gradient-to-b from-accent-500/20 to-accent-600/10 text-accent-300 shadow-[0_0_30px_rgba(139,124,246,0.3)] transition-all duration-200 hover:scale-105 hover:border-accent-400 hover:text-white"
-                      title="Choose video file"
-                    >
-                      <Icon name="upload" size={28} />
-                    </button>
+                    <h3 className="font-display text-xl font-bold tracking-tight text-white">
+                      Relink original footage
+                    </h3>
+                    <p className="mt-2 max-w-xs text-xs leading-relaxed text-mute">
+                      All your cuts, captions, styles, and draft plan are safely restored. Drop or select <span className="text-white font-medium">"{relinkPrompt.name}"</span> to reconnect video playback.
+                    </p>
+                    <div className="mt-5 flex items-center gap-3">
+                      <button
+                        onClick={() => fileInput.current?.click()}
+                        className={`${btnPrimary} h-9 px-5 shadow-[0_0_20px_rgba(139,124,246,0.35)]`}
+                      >
+                        <Icon name="folder" size={15} />
+                        <span>Select "{relinkPrompt.name}"</span>
+                      </button>
+                      <Link
+                        to="/dashboard"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-ink-800 px-3 text-xs text-mute transition-colors hover:border-white/20 hover:text-fg"
+                      >
+                        <Icon name="left" size={13} />
+                        <span>My Projects</span>
+                      </Link>
+                    </div>
                   </div>
+                ) : (
+                  <div className="relative flex w-full max-w-md flex-col items-center p-6 text-center">
+                    {recoverInfo && pendingRecover && (
+                      <div className="mb-4 w-full">
+                        <RecoverCard info={recoverInfo} onRestore={restore} onDiscard={discard} />
+                      </div>
+                    )}
 
-                  <h3 className="font-display text-xl font-bold tracking-tight text-white">
-                    Drop your footage to start
-                  </h3>
-                  <p className="mt-2 max-w-xs text-xs leading-relaxed text-mute">
-                    Drag and drop any raw clip or click below. CutPilot creates AI drafts and burns kinetic captions on your device.
-                  </p>
+                    <div className="relative mb-5">
+                      <div className="absolute -inset-2 rounded-full bg-accent-500/20 blur-xl" />
+                      <button
+                        onClick={() => fileInput.current?.click()}
+                        className="group relative grid h-16 w-16 place-items-center rounded-2xl border border-accent-500/40 bg-gradient-to-b from-accent-500/20 to-accent-600/10 text-accent-300 shadow-[0_0_30px_rgba(139,124,246,0.3)] transition-all duration-200 hover:scale-105 hover:border-accent-400 hover:text-white"
+                        title="Choose video file"
+                      >
+                        <Icon name="upload" size={28} />
+                      </button>
+                    </div>
 
-                  <div className="mt-5 flex items-center gap-3">
-                    <button
-                      onClick={() => fileInput.current?.click()}
-                      className={`${btnPrimary} h-9 px-5 shadow-[0_0_20px_rgba(139,124,246,0.35)]`}
-                    >
-                      <Icon name="folder" size={15} />
-                      <span>Choose video file</span>
-                    </button>
-                    <Link
-                      to="/"
-                      className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-ink-800 px-3 text-xs text-mute transition-colors hover:border-white/20 hover:text-fg"
-                    >
-                      <Icon name="left" size={13} />
-                      <span>Landing page</span>
-                    </Link>
+                    <h3 className="font-display text-xl font-bold tracking-tight text-white">
+                      Drop your footage to start
+                    </h3>
+                    <p className="mt-2 max-w-xs text-xs leading-relaxed text-mute">
+                      Drag and drop any raw clip or click below. CutPilot creates AI drafts and burns kinetic captions on your device.
+                    </p>
+
+                    <div className="mt-5 flex items-center gap-3">
+                      <button
+                        onClick={() => fileInput.current?.click()}
+                        className={`${btnPrimary} h-9 px-5 shadow-[0_0_20px_rgba(139,124,246,0.35)]`}
+                      >
+                        <Icon name="folder" size={15} />
+                        <span>Choose video file</span>
+                      </button>
+                      <Link
+                        to="/dashboard"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-ink-800 px-3 text-xs text-mute transition-colors hover:border-white/20 hover:text-fg"
+                      >
+                        <Icon name="left" size={13} />
+                        <span>My Projects</span>
+                      </Link>
+                    </div>
+
+                    {/* Compatibility Badges */}
+                    <div className="mt-7 flex flex-wrap items-center justify-center gap-2 border-t border-white/[0.08] pt-5 text-[11px] text-mute">
+                      <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">MP4 / H.264</span>
+                      <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">WebM</span>
+                      <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">MOV</span>
+                      <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">Up to 4K</span>
+                      <span className="flex items-center gap-1 rounded-md border border-teal-500/20 bg-teal-500/10 px-2 py-0.5 text-teal-300">
+                        <Icon name="check" size={11} /> 100% On-Device
+                      </span>
+                    </div>
                   </div>
-
-                  {/* Compatibility Badges */}
-                  <div className="mt-7 flex flex-wrap items-center justify-center gap-2 border-t border-white/[0.08] pt-5 text-[11px] text-mute">
-                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">MP4 / H.264</span>
-                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">WebM</span>
-                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">MOV</span>
-                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">Up to 4K</span>
-                    <span className="flex items-center gap-1 rounded-md border border-teal-500/20 bg-teal-500/10 px-2 py-0.5 text-teal-300">
-                      <Icon name="check" size={11} /> 100% On-Device
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             )}
             {loading && <div className="absolute inset-4 grid place-items-center rounded-xl bg-black/60 text-sm text-fg" role="status">Reading video…</div>}
@@ -1056,6 +1224,13 @@ export default function App() {
                 </select>
               </div>
               <div className="pt-2 border-t border-line space-y-2">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className={`${btn} w-full justify-start h-9 text-xs text-accent-300 bg-accent-500/10 border-accent-500/30`}
+                >
+                  <Icon name="folder" size={14} /> My Projects Dashboard
+                </Link>
                 <button
                   onClick={() => { setMobileMoreOpen(false); newProject() }}
                   className={`${btn} w-full justify-start h-9 text-xs`}
@@ -1084,6 +1259,10 @@ export default function App() {
                 </button>
               </div>
               <div className="pt-3 border-t border-line text-[11px] text-mute flex items-center justify-between">
+                <span>Account</span>
+                <UserMenu />
+              </div>
+              <div className="text-[11px] text-mute flex items-center justify-between">
                 <span>Autosave</span>
                 <span className="flex items-center gap-1.5"><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{status}</span>
               </div>
@@ -1091,6 +1270,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Global Auth Modal */}
+      <AuthModal />
     </div>
   )
 }

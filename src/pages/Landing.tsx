@@ -5,6 +5,8 @@ import { Icon } from '../components/icons'
 import { LogoMark } from '../components/Logo'
 import { NewProjectDialog } from '../components/NewProjectDialog'
 import { CaptionFrame } from '../components/landing/CaptionFrame'
+import { UserMenu } from '../components/UserMenu'
+import { AuthModal } from '../components/AuthModal'
 
 const NAV = [
   { id: 'how', label: 'Workflow' },
@@ -187,7 +189,14 @@ export default function Landing() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <Link
+              to="/dashboard"
+              className="hidden sm:inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-white/70 transition-colors hover:text-white"
+            >
+              <span>My Projects</span>
+            </Link>
+
             {resume && (
               <Link
                 to="/editor"
@@ -205,6 +214,9 @@ export default function Landing() {
               Start creating
             </button>
 
+            <span className="hidden sm:inline-block h-4 w-px bg-white/10" />
+            <UserMenu />
+
             <button
               className="grid h-9 w-9 place-items-center rounded-lg border border-white/15 md:hidden"
               aria-expanded={menu}
@@ -220,6 +232,12 @@ export default function Landing() {
         {/* Mobile Navigation Dropdown */}
         {menu && (
           <nav id="mobile-nav" aria-label="Mobile" className="border-t border-white/[0.07] bg-[#101216] px-4 py-3 md:hidden">
+            <Link
+              to="/dashboard"
+              className="block whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold text-[#ffe14d] hover:bg-white/5"
+            >
+              My Projects Dashboard →
+            </Link>
             {NAV.map((n) => (
               <a
                 key={n.id}
@@ -1040,6 +1058,7 @@ export default function Landing() {
       </footer>
 
       {dialog && <NewProjectDialog onClose={closeDialog} />}
+      <AuthModal />
     </div>
   )
 }

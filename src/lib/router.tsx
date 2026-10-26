@@ -5,9 +5,14 @@ import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from 'react'
  * Minimal History-API router for two pages: "/" (landing) and "/editor". No dependency needed.
  * Deployment hosts must serve index.html for /editor (vite dev does this by default; vercel.json does it on Vercel).
  */
-export type Route = 'home' | 'editor'
+export type Route = 'home' | 'editor' | 'dashboard'
 
-export const routeOf = (pathname: string): Route => (pathname.replace(/\/+$/, '') === '/editor' ? 'editor' : 'home')
+export const routeOf = (pathname: string): Route => {
+  const clean = pathname.replace(/\/+$/, '')
+  if (clean === '/editor') return 'editor'
+  if (clean === '/dashboard' || clean === '/projects') return 'dashboard'
+  return 'home'
+}
 
 export function navigate(to: string, opts: { replace?: boolean } = {}) {
   if (opts.replace) history.replaceState(null, '', to)
