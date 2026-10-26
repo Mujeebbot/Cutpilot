@@ -60,7 +60,7 @@ export interface CaptionStyle {
 
 export type Density = number // 1..10 words per caption (validated at runtime)
 export interface Trim { start: number; end: number }
-export type Tool = 'media' | 'captions' | 'styles' | 'ai' | 'draft'
+export type Tool = 'media' | 'captions' | 'styles' | 'ai' | 'draft' | 'assistant'
 
 /**
  * One piece of the edit: a range of the ORIGINAL video, referenced by source time (the media is never cut or copied).

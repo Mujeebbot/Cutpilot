@@ -8,6 +8,7 @@ import { DraftPanel } from './components/DraftPanel'
 import { DraftScreen } from './components/DraftScreen'
 import type { BriefState } from './components/DraftScreen'
 import { AiPanel, CaptionsPanel, MediaPanel, RecoverCard, StylesPanel } from './components/Panels'
+import { AssistantPanel } from './components/AssistantPanel'
 import type { Recoverable } from './components/Panels'
 import { Icon } from './components/icons'
 import type { IconName } from './components/icons'
@@ -641,6 +642,7 @@ export default function App() {
     { id: 'styles', label: 'Styles', icon: 'type', title: 'Styles', sub: 'Caption templates and customisation' },
     { id: 'draft', label: 'Draft', icon: 'clips', title: 'Draft & clips', sub: 'First draft and the clip sequence' },
     { id: 'ai', label: 'AI Tools', icon: 'sparkles', title: 'AI Tools', sub: 'Free, on-device speech to captions' },
+    { id: 'assistant', label: 'Assistant', icon: 'chat', title: 'Assistant', sub: 'Control the editor with typed commands' },
   ]
   const curTool = TOOLS.find((t) => t.id === tool)!
   const keysBtn = useMemo(() => <IconButton icon="keyboard" label="Keyboard shortcuts (?)" onClick={() => setShowKeys(true)} />, [])
@@ -831,6 +833,26 @@ export default function App() {
                 onMove={moveClip} onRemove={removeClip} onRange={updateClipRange} onClear={clearClips} onRegenCaptions={regenCaptions} />
             )}
             {tool === 'ai' && <AiPanel hasVideo={hasVideo} ai={ai} selection={Math.max(0, trim.end - trim.start)} density={density} lastRun={lastRun} onDensity={changeDensity} onTranscribe={(m) => void runTranscribe(m)} />}
+            {tool === 'assistant' && (
+              <AssistantPanel
+                snapshot={{
+                  captionsCount: captions.length,
+                  templateName: templateById(presetId)?.name ?? 'Custom',
+                  canvasAspect: canvas.aspect,
+                  duration,
+                  clipsCount: clips.length,
+                  trim,
+                }}
+                onDensity={(n) => changeDensity(n)}
+                onApplyTemplate={(t) => applyTemplate(t)}
+                onSetAllY={(y) => setAllY(y)}
+                onSetCanvas={(aspect) => setCanvas((cv) => ({ ...cv, aspect }))}
+                onClearCaptions={() => setCaptions([])}
+                onTrim={(tr) => setTrim((cur) => ({ start: tr.start ?? cur.start, end: tr.end ?? cur.end }))}
+                onUndo={undo}
+                onRedo={redo}
+              />
+            )}
           </div>
         </aside>
       </div>
