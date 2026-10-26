@@ -33,6 +33,8 @@ export default function Landing() {
   const [resume, setResume] = useState<{ name: string; videoName: string } | null>(null)
   const [accepted, setAccepted] = useState(false)
   const [activeStep, setActiveStep] = useState<0 | 1 | 2>(0)
+  const [timecode, setTimecode] = useState('00:00:00:00')
+  const [parallaxY, setParallaxY] = useState(0)
 
   const closeDialog = useCallback(() => setDialog(false), [])
 
@@ -55,6 +57,28 @@ export default function Landing() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Scroll Playhead & Parallax tracking
+  useEffect(() => {
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      const pct = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0
+      const totalSec = pct * 45 // 45 seconds virtual timeline length
+      const m = Math.floor(totalSec / 60)
+      const s = Math.floor(totalSec % 60)
+      const f = Math.floor((totalSec % 1) * 30)
+      setTimecode(
+        `00:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`
+      )
+      if (!calm) {
+        setParallaxY(Math.min(14, window.scrollY * 0.035))
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const jump = (id: string) => (e: React.MouseEvent) => {
     e.preventDefault()
     setMenu(false)
@@ -69,7 +93,53 @@ export default function Landing() {
     : ''
 
   return (
-    <div className="relative min-h-dvh bg-[#0c0d10] font-body text-[#f3f1ec] antialiased selection:bg-[#ffe14d]/30">
+    <div className="relative min-h-dvh bg-[#0b0c0f] font-body text-[#f3f1ec] antialiased selection:bg-[#ffe14d]/30">
+      {/* ------------------------------------------------------------------ ATMOSPHERE LAYERS */}
+      {/* Film-grain overlay (inline SVG feTurbulence, 5% opacity, mix-blend-mode: overlay) */}
+      <svg
+        className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.05] mix-blend-overlay"
+        aria-hidden="true"
+      >
+        <filter id="grain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#grain)" />
+      </svg>
+
+      {/* Timeline-ruler motif: 3.5% white ticks, short tick every 24px, long tick every 120px */}
+      <svg
+        className="pointer-events-none fixed inset-x-0 top-0 z-0 h-96 w-full opacity-[0.035] [mask-image:linear-gradient(to_bottom,black_30%,transparent_100%)]"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern id="timeline-ruler" width="120" height="28" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="16" stroke="#ffffff" strokeWidth="1" />
+            <line x1="24" y1="0" x2="24" y2="6" stroke="#ffffff" strokeWidth="1" />
+            <line x1="48" y1="0" x2="48" y2="6" stroke="#ffffff" strokeWidth="1" />
+            <line x1="72" y1="0" x2="72" y2="6" stroke="#ffffff" strokeWidth="1" />
+            <line x1="96" y1="0" x2="96" y2="6" stroke="#ffffff" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#timeline-ruler)" />
+      </svg>
+
+      {/* Scroll Playhead (fixed 1px accent-yellow line at content margin, hidden <1024px) */}
+      <div
+        className="pointer-events-none fixed top-0 bottom-0 z-40 hidden lg:block left-[max(0.75rem,calc((100vw-72rem)/2-2rem))]"
+        aria-hidden="true"
+      >
+        <div className="relative h-full w-px bg-white/[0.06]">
+          <div className="sticky top-24 -ml-2.5 flex items-center gap-1.5 transition-transform duration-75">
+            <span className="grid h-5 w-5 place-items-center rounded bg-[#0b0c0f] border border-[#ffe14d]/70 text-[#ffe14d] shadow-[0_0_12px_rgba(255,225,77,0.35)]">
+              <span className="h-2 w-0.5 bg-[#ffe14d]" />
+            </span>
+            <span className="rounded border border-[#ffe14d]/40 bg-[#0b0c0f]/95 px-1.5 py-0.5 font-mono text-[10px] tracking-wider text-[#ffe14d] backdrop-blur shadow-sm">
+              {timecode}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Skip Link for Accessibility */}
       <a
         href="#main"
@@ -79,7 +149,7 @@ export default function Landing() {
       </a>
 
       {/* ------------------------------------------------------------------ NAVIGATION (h-16 / 64px, max 4 links) */}
-      <header className="sticky top-0 z-30 h-16 border-b border-white/[0.08] bg-[#0c0d10]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 h-16 border-b border-white/[0.07] bg-[#0b0c0f]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link
             to="/"
@@ -140,7 +210,7 @@ export default function Landing() {
 
         {/* Mobile Navigation Dropdown */}
         {menu && (
-          <nav id="mobile-nav" aria-label="Mobile" className="border-t border-white/[0.08] bg-[#121316] px-4 py-3 md:hidden">
+          <nav id="mobile-nav" aria-label="Mobile" className="border-t border-white/[0.07] bg-[#101216] px-4 py-3 md:hidden">
             {NAV.map((n) => (
               <a
                 key={n.id}
@@ -170,79 +240,115 @@ export default function Landing() {
 
       <main id="main">
         {/* ------------------------------------------------------------------ HERO SECTION */}
-        <section className="relative overflow-hidden pt-16 pb-28 sm:pt-24 sm:pb-36 lg:pt-28 lg:pb-40">
+        <section
+          className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28"
+          style={{
+            background:
+              'radial-gradient(ellipse 700px 550px at 70% 10%, rgba(255, 225, 77, 0.12), transparent 70%), radial-gradient(circle 600px at 10% 80%, rgba(100, 160, 220, 0.04), transparent 70%)',
+          }}
+        >
+          {/* Top subtle vignette so nav reads clearly */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#0b0c0f] to-transparent" />
+
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="max-w-3xl">
-              {/* Display Headline in Refined Serif */}
-              <h1 className="font-serif text-[clamp(2.75rem,7vw,5.25rem)] font-normal leading-[1.05] tracking-[-0.02em] text-[#f3f1ec]">
-                <span className="block">Your footage.</span>
-                <span className="block">Your vision.</span>
-                <span className="mt-2 block">
-                  <span
-                    className={`relative inline-block rounded-xl px-4 py-1.5 transition-all duration-700 ${
-                      accepted
-                        ? 'border-2 border-[#ffe14d] bg-[#ffe14d]/10 text-white'
-                        : 'border-2 border-dashed border-[#ffe14d]/60 bg-[#ffe14d]/5 text-white/90'
-                    }`}
-                  >
-                    AI does the first cut.
+            {/* 2 Columns on Desktop: Left 55% Copy, Right 45% 9:16 Phone Frame */}
+            <div className="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center">
+              <div>
+                {/* Refined Display Serif Headline */}
+                <h1 className="font-serif text-[clamp(2.75rem,6.5vw,5rem)] font-normal leading-[1.04] tracking-[-0.02em] text-[#f3f1ec]">
+                  <span className="block">Your footage.</span>
+                  <span className="block">Your vision.</span>
+                  <span className="mt-2 block">
                     <span
-                      aria-hidden="true"
-                      className={`absolute -top-3 right-3 rounded-full px-2.5 py-0.5 font-sans text-[10px] font-bold uppercase tracking-wider transition-all duration-500 ${
+                      className={`relative inline-block rounded-xl px-4 py-1.5 transition-all duration-700 ${
                         accepted
-                          ? 'bg-[#ffe14d] text-black shadow-sm'
-                          : 'border border-[#ffe14d]/40 bg-[#0c0d10] text-[#ffe14d]'
+                          ? 'border-2 border-[#ffe14d] bg-[#ffe14d]/10 text-white'
+                          : 'border-2 border-dashed border-[#ffe14d]/60 bg-[#ffe14d]/5 text-white/90'
                       }`}
                     >
-                      {accepted ? 'Accepted' : 'Proposed Draft'}
+                      AI does the first cut.
+                      <span
+                        aria-hidden="true"
+                        className={`absolute -top-3 right-3 rounded-full px-2.5 py-0.5 font-sans text-[10px] font-bold uppercase tracking-wider transition-all duration-500 ${
+                          accepted
+                            ? 'bg-[#ffe14d] text-black shadow-sm'
+                            : 'border border-[#ffe14d]/40 bg-[#0b0c0f] text-[#ffe14d]'
+                        }`}
+                      >
+                        {accepted ? 'Accepted' : 'Proposed Draft'}
+                      </span>
                     </span>
                   </span>
-                </span>
-              </h1>
+                </h1>
 
-              {/* Quiet, Editor-Voice Value Proposition */}
-              <p className="mt-8 max-w-[54ch] text-base leading-relaxed text-[#9da1ab] sm:text-lg">
-                CutPilot turns raw footage into proposed edits you review clip by clip, with word-level snapping,
-                trim handles, and kinetic captions. Transcription runs entirely on your device with Whisper.
-              </p>
+                {/* Editor-Voice Value Proposition */}
+                <p className="mt-8 max-w-[50ch] text-base leading-relaxed text-[#9da1ab] sm:text-lg">
+                  CutPilot turns raw footage into proposed edits you review clip by clip, with word-level snapping,
+                  trim handles, and kinetic captions. Transcription runs entirely on your device with Whisper.
+                </p>
 
-              {/* Call to action & quiet check items */}
-              <div className="mt-9 flex flex-wrap items-center gap-5">
-                <button onClick={() => setDialog(true)} className={`${btnPrimary} h-12 px-7 text-sm`}>
-                  Start creating
-                </button>
-                <a
-                  href="#how"
-                  onClick={jump('how')}
-                  className="inline-flex h-12 items-center gap-1.5 rounded-lg border border-white/10 px-5 text-sm text-[#f3f1ec] transition-colors hover:border-white/20 hover:bg-white/[0.04]"
-                >
-                  <span>See the workflow</span>
-                  <Icon name="down" size={14} className="text-[#9da1ab]" />
-                </a>
+                {/* CTA Group */}
+                <div className="mt-9 flex flex-wrap items-center gap-5">
+                  <button onClick={() => setDialog(true)} className={`${btnPrimary} h-12 px-7 text-sm`}>
+                    Start creating
+                  </button>
+                  <a
+                    href="#how"
+                    onClick={jump('how')}
+                    className="inline-flex h-12 items-center gap-1.5 rounded-lg border border-white/10 px-5 text-sm text-[#f3f1ec] transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+                  >
+                    <span>See the workflow</span>
+                    <Icon name="down" size={14} className="text-[#9da1ab]" />
+                  </a>
+                </div>
+
+                {/* Quiet Guarantees Line */}
+                <p className="mt-7 text-xs text-[#9da1ab]">
+                  On-device Whisper <span className="mx-2 text-white/20">·</span> Zero cloud uploads{' '}
+                  <span className="mx-2 text-white/20">·</span> Multi-clip timeline with trim handles
+                </p>
               </div>
 
-              {/* One Quiet Line for Key Guarantees */}
-              <p className="mt-7 text-xs text-[#9da1ab]">
-                On-device Whisper <span className="mx-2 text-white/20">·</span> Zero cloud uploads{' '}
-                <span className="mx-2 text-white/20">·</span> Multi-clip timeline with trim handles
-              </p>
+              {/* Right Column: Vertical 9:16 Phone Frame with Overlap & Parallax */}
+              <div
+                className="relative mx-auto w-full max-w-[280px] lg:max-w-[320px] lg:-mb-20 z-20 transition-transform ease-out duration-75"
+                style={{ transform: `translateY(${parallaxY}px)` }}
+              >
+                <div className="relative rounded-[2rem] border-2 border-white/20 bg-[#101216] p-2 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] ring-1 ring-black">
+                  <div className="overflow-hidden rounded-[1.6rem]">
+                    <CaptionFrame
+                      templateId="heavy-pop"
+                      text="The *FIRST* cut is ready to review"
+                      imageSrc="/media/creator-reel-1.jpg"
+                      width={280}
+                      height={498}
+                      y={0.76}
+                      animate={true}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Studio Screenshot Display */}
-            <div className="mt-16 relative">
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#121316] shadow-2xl">
-                <div className="flex h-10 items-center justify-between border-b border-white/[0.08] bg-[#18191e] px-4">
+            {/* Studio Screenshot Display with Soft Yellow Glow & Top Edge Highlight */}
+            <div className="relative mt-12 sm:mt-16 z-10">
+              <div className="overflow-hidden rounded-2xl border border-white/10 border-t-white/25 bg-[#101216] shadow-[0_20px_70px_-15px_rgba(255,225,77,0.12)]">
+                <div className="flex h-10 items-center justify-between border-b border-white/[0.07] bg-[#14161b] px-4">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
                     <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
                     <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
                     <span className="ml-3 font-mono text-xs text-[#9da1ab]">
-                      CutPilot Studio · Multi-clip sequence &amp; caption timeline
+                      CutPilot Studio · Proposed clips &amp; multi-clip timeline
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] text-[#9da1ab]">100% In-Browser</span>
+                  <div className="flex items-center gap-3 text-xs font-mono text-[#9da1ab]">
+                    <span>Score: 96</span>
+                    <span className="hidden sm:inline">· 100% On-Device</span>
+                  </div>
                 </div>
-                <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#0c0d10]">
+                <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#0b0c0f]">
                   <img
                     src="/media/studio-screenshot.jpg"
                     alt="CutPilot browser-based video editing studio"
@@ -256,7 +362,16 @@ export default function Landing() {
         </section>
 
         {/* ------------------------------------------------------------------ WORKFLOW SECTION (01 / 02 / 03) */}
-        <section id="how" tabIndex={-1} aria-labelledby="how-h" className="border-t border-white/[0.08] bg-[#121316] py-28 focus:outline-none sm:py-36">
+        <section
+          id="how"
+          tabIndex={-1}
+          aria-labelledby="how-h"
+          className="border-t border-white/[0.07] bg-[#101216] py-24 focus:outline-none sm:py-32"
+          style={{
+            background:
+              'radial-gradient(ellipse 600px 500px at 15% 45%, rgba(255, 255, 255, 0.05), transparent 70%)',
+          }}
+        >
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="max-w-2xl">
               <h2 id="how-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
@@ -268,13 +383,14 @@ export default function Landing() {
             </div>
 
             {/* Numerals 01 / 02 / 03 Grid */}
-            <div className="mt-16 grid gap-8 lg:grid-cols-3">
+            <div className="mt-14 grid gap-6 lg:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setActiveStep(0)}
+                onMouseEnter={() => setActiveStep(0)}
                 className={`text-left p-6 rounded-xl border transition-all ${
                   activeStep === 0
-                    ? 'border-[#ffe14d]/40 bg-[#18191e]'
+                    ? 'border-[#ffe14d]/50 bg-[#16181e] shadow-lg'
                     : 'border-white/5 bg-transparent hover:border-white/10'
                 }`}
               >
@@ -288,9 +404,10 @@ export default function Landing() {
               <button
                 type="button"
                 onClick={() => setActiveStep(1)}
+                onMouseEnter={() => setActiveStep(1)}
                 className={`text-left p-6 rounded-xl border transition-all ${
                   activeStep === 1
-                    ? 'border-[#ffe14d]/40 bg-[#18191e]'
+                    ? 'border-[#ffe14d]/50 bg-[#16181e] shadow-lg'
                     : 'border-white/5 bg-transparent hover:border-white/10'
                 }`}
               >
@@ -304,9 +421,10 @@ export default function Landing() {
               <button
                 type="button"
                 onClick={() => setActiveStep(2)}
+                onMouseEnter={() => setActiveStep(2)}
                 className={`text-left p-6 rounded-xl border transition-all ${
                   activeStep === 2
-                    ? 'border-[#ffe14d]/40 bg-[#18191e]'
+                    ? 'border-[#ffe14d]/50 bg-[#16181e] shadow-lg'
                     : 'border-white/5 bg-transparent hover:border-white/10'
                 }`}
               >
@@ -318,11 +436,11 @@ export default function Landing() {
               </button>
             </div>
 
-            {/* Large Interactive Visual for the Active Step */}
-            <div className="mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0c0d10] p-6 sm:p-8">
+            {/* Crossfading Product Visual for Active Step */}
+            <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-[#0b0c0f] p-6 sm:p-8 transition-all duration-300">
               {activeStep === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-[#18191e] text-[#ffe14d]">
+                <div className="flex flex-col items-center justify-center py-12 text-center animate-fadeIn">
+                  <div className="grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-[#14161b] text-[#ffe14d] shadow-[0_0_20px_rgba(255,225,77,0.15)]">
                     <Icon name="upload" size={28} />
                   </div>
                   <p className="mt-4 font-mono text-xs text-[#9da1ab]">raw_interview_session.mp4</p>
@@ -332,7 +450,7 @@ export default function Landing() {
               )}
 
               {activeStep === 1 && (
-                <div className="space-y-3 py-6">
+                <div className="space-y-3 py-6 animate-fadeIn">
                   <div className="flex items-center justify-between rounded-lg border border-[#ffe14d]/30 bg-[#ffe14d]/5 p-3 text-xs">
                     <div>
                       <span className="font-mono text-white">00:11 – 00:31</span>
@@ -358,12 +476,12 @@ export default function Landing() {
               )}
 
               {activeStep === 2 && (
-                <div className="space-y-4 py-6">
+                <div className="space-y-4 py-6 animate-fadeIn">
                   <div className="flex items-center justify-between text-xs text-[#9da1ab] font-mono">
                     <span>TIMELINE · 2 CLIPS SELECTED</span>
                     <span>LENGTH 00:44</span>
                   </div>
-                  <div className="grid h-12 grid-cols-12 gap-1 rounded-lg border border-white/10 bg-[#18191e] p-1.5">
+                  <div className="grid h-12 grid-cols-12 gap-1 rounded-lg border border-white/10 bg-[#14161b] p-1.5">
                     <div className="col-span-5 rounded bg-[#ffe14d]/80 flex items-center px-2 text-[11px] font-mono font-semibold text-black">Clip 01 (20s)</div>
                     <div className="col-span-7 rounded bg-[#ffe14d]/50 flex items-center px-2 text-[11px] font-mono font-semibold text-black">Clip 02 (24s)</div>
                   </div>
@@ -377,8 +495,17 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ------------------------------------------------------------------ CAPTION STYLES (Full-Bleed Horizontal Reel) */}
-        <section id="templates" tabIndex={-1} aria-labelledby="tmpl-h" className="py-28 focus:outline-none sm:py-36">
+        {/* ------------------------------------------------------------------ CAPTION STYLES (Aligned Reel with continuous loop) */}
+        <section
+          id="templates"
+          tabIndex={-1}
+          aria-labelledby="tmpl-h"
+          className="py-24 focus:outline-none sm:py-32"
+          style={{
+            background:
+              'radial-gradient(ellipse 700px 500px at 80% 50%, rgba(255, 225, 77, 0.08), transparent 70%)',
+          }}
+        >
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
@@ -393,94 +520,92 @@ export default function Landing() {
                 Browse in editor
               </button>
             </div>
-          </div>
 
-          {/* Full-Bleed Horizontal Reel */}
-          <div className="mt-12 overflow-x-auto pb-6 hide-scrollbar">
-            <div className="flex gap-6 px-4 sm:px-6 w-max mx-auto">
-              {/* Style 1: Heavy Pop */}
-              <div className="w-[260px] sm:w-[280px] flex flex-col gap-2">
-                <CaptionFrame
-                  templateId="heavy-pop"
-                  text="The *FIRST* rule of editing"
-                  imageSrc="/media/creator-reel-1.jpg"
-                  badge="Heavy Pop"
-                  width={280}
-                  height={480}
-                  y={0.76}
-                  animate={true}
-                  className="w-full"
-                />
-                <div className="px-1">
-                  <p className="text-sm font-medium text-white">Heavy Pop</p>
-                  <p className="text-xs text-[#9da1ab]">Condensed heavy caps with yellow keyword emphasis</p>
+            {/* Container-aligned horizontal scroll reel with snap on mobile */}
+            <div className="mt-12 overflow-x-auto pb-4 hide-scrollbar snap-x snap-mandatory">
+              <div className="flex gap-6 min-w-full">
+                {/* Style 1: Heavy Pop */}
+                <div className="w-[260px] sm:w-[270px] shrink-0 snap-center flex flex-col gap-2.5">
+                  <CaptionFrame
+                    templateId="heavy-pop"
+                    text="The *FIRST* rule of editing"
+                    imageSrc="/media/creator-reel-1.jpg"
+                    width={270}
+                    height={480}
+                    y={0.76}
+                    animate={true}
+                    className="w-full"
+                  />
+                  <div className="px-0.5 text-xs text-[#9da1ab]">
+                    <span className="font-medium text-white">Heavy Pop</span> — Condensed caps with yellow emphasis
+                  </div>
                 </div>
-              </div>
 
-              {/* Style 2: Neon Glow */}
-              <div className="w-[260px] sm:w-[280px] flex flex-col gap-2">
-                <CaptionFrame
-                  templateId="neon-glow"
-                  text="Stop guessing what works"
-                  imageSrc="/media/creator-reel-2.jpg"
-                  badge="Neon Glow"
-                  width={280}
-                  height={480}
-                  y={0.76}
-                  animate={true}
-                  className="w-full"
-                />
-                <div className="px-1">
-                  <p className="text-sm font-medium text-white">Neon Glow</p>
-                  <p className="text-xs text-[#9da1ab]">Luminous glow with clean contrast</p>
+                {/* Style 2: Neon Glow */}
+                <div className="w-[260px] sm:w-[270px] shrink-0 snap-center flex flex-col gap-2.5">
+                  <CaptionFrame
+                    templateId="neon-glow"
+                    text="Stop guessing what works"
+                    imageSrc="/media/creator-reel-2.jpg"
+                    width={270}
+                    height={480}
+                    y={0.76}
+                    animate={true}
+                    className="w-full"
+                  />
+                  <div className="px-0.5 text-xs text-[#9da1ab]">
+                    <span className="font-medium text-white">Neon Glow</span> — Luminous night tubes with clean contrast
+                  </div>
                 </div>
-              </div>
 
-              {/* Style 3: Editorial Serif */}
-              <div className="w-[260px] sm:w-[280px] flex flex-col gap-2">
-                <CaptionFrame
-                  templateId="editorial"
-                  text="A quiet *clarity* in voice"
-                  imageSrc="/media/creator-reel-1.jpg"
-                  badge="Editorial"
-                  width={280}
-                  height={480}
-                  y={0.76}
-                  animate={true}
-                  className="w-full"
-                />
-                <div className="px-1">
-                  <p className="text-sm font-medium text-white">Editorial Serif</p>
-                  <p className="text-xs text-[#9da1ab]">Refined serif display with gentle animation</p>
+                {/* Style 3: Editorial Serif */}
+                <div className="w-[260px] sm:w-[270px] shrink-0 snap-center flex flex-col gap-2.5">
+                  <CaptionFrame
+                    templateId="editorial"
+                    text="A quiet *clarity* in voice"
+                    imageSrc="/media/creator-reel-1.jpg"
+                    width={270}
+                    height={480}
+                    y={0.76}
+                    animate={true}
+                    className="w-full"
+                  />
+                  <div className="px-0.5 text-xs text-[#9da1ab]">
+                    <span className="font-medium text-white">Editorial Serif</span> — Refined display with soft fade
+                  </div>
                 </div>
-              </div>
 
-              {/* Style 4: Cove Italic */}
-              <div className="w-[260px] sm:w-[280px] flex flex-col gap-2">
-                <CaptionFrame
-                  templateId="cove-italic"
-                  text="When you find *focus*"
-                  imageSrc="/media/creator-reel-2.jpg"
-                  badge="Cove Italic"
-                  width={280}
-                  height={480}
-                  y={0.76}
-                  animate={true}
-                  className="w-full"
-                />
-                <div className="px-1">
-                  <p className="text-sm font-medium text-white">Cove Italic</p>
-                  <p className="text-xs text-[#9da1ab]">High-contrast serif with italic keyword accent</p>
+                {/* Style 4: Cove Italic */}
+                <div className="w-[260px] sm:w-[270px] shrink-0 snap-center flex flex-col gap-2.5">
+                  <CaptionFrame
+                    templateId="cove-italic"
+                    text="When you find *focus*"
+                    imageSrc="/media/creator-reel-2.jpg"
+                    width={270}
+                    height={480}
+                    y={0.76}
+                    animate={true}
+                    className="w-full"
+                  />
+                  <div className="px-0.5 text-xs text-[#9da1ab]">
+                    <span className="font-medium text-white">Cove Italic</span> — High-contrast serif with italic keyword
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ------------------------------------------------------------------ STUDIO BANNER */}
-        <section className="border-y border-white/[0.08] bg-[#121316] py-28 sm:py-36">
+        {/* ------------------------------------------------------------------ STUDIO BANNER (Perspective tilt on hover) */}
+        <section
+          className="border-y border-white/[0.07] bg-[#101216] py-24 sm:py-32"
+          style={{
+            background:
+              'radial-gradient(ellipse 650px 450px at 50% 25%, rgba(255, 255, 255, 0.06), transparent 70%)',
+          }}
+        >
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div className="grid gap-10 lg:grid-cols-[1fr_1.8fr] lg:items-center">
               <div>
                 <h2 className="font-serif text-3xl font-normal text-white sm:text-4xl">
                   Multi-clip timeline with trim handles and caption editing
@@ -495,7 +620,8 @@ export default function Landing() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0c0d10] shadow-xl">
+              {/* Enlarged Screenshot with 3D Perspective Tilt on Hover */}
+              <div className="perspective-[1000px] overflow-hidden rounded-xl border border-white/10 bg-[#0b0c0f] shadow-2xl transition-transform duration-500 ease-out hover:[transform:none] [transform:rotateY(-5deg)_rotateX(2deg)]">
                 <img
                   src="/media/studio-screenshot.jpg"
                   alt="CutPilot studio editor interface"
@@ -507,8 +633,17 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ------------------------------------------------------------------ WHY LOCAL-FIRST (SPEC TABLE) */}
-        <section id="compare" tabIndex={-1} aria-labelledby="cmp-h" className="py-28 focus:outline-none sm:py-36">
+        {/* ------------------------------------------------------------------ WHY LOCAL-FIRST (DIAGRAM + SPEC TABLE) */}
+        <section
+          id="compare"
+          tabIndex={-1}
+          aria-labelledby="cmp-h"
+          className="py-24 focus:outline-none sm:py-32"
+          style={{
+            background:
+              'radial-gradient(ellipse 600px 450px at 20% 35%, rgba(255, 225, 77, 0.08), transparent 70%)',
+          }}
+        >
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="max-w-2xl">
               <h2 id="cmp-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
@@ -519,6 +654,54 @@ export default function Landing() {
               </p>
             </div>
 
+            {/* Architecture Diagram: Your Device vs External */}
+            <div className="mt-10 rounded-xl border border-white/10 bg-[#101216] p-6 sm:p-8">
+              <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
+                {/* Box 1: Your Device */}
+                <div className="rounded-lg border border-[#ffe14d]/30 bg-[#0b0c0f] p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-semibold uppercase tracking-wider text-[#ffe14d]">
+                      Your Device (In-Browser)
+                    </span>
+                    <span className="rounded bg-[#ffe14d]/10 px-2 py-0.5 text-[10px] font-mono text-[#ffe14d]">
+                      100% Private
+                    </span>
+                  </div>
+                  <ul className="mt-4 space-y-2 text-xs text-[#f3f1ec]">
+                    <li className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#ffe14d]" />
+                      <span>Original video footage (never uploaded)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#ffe14d]" />
+                      <span>Whisper speech recognition (WebAssembly)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#ffe14d]" />
+                      <span>Multi-clip timeline, captions &amp; canvas export</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Arrow / Connection */}
+                <div className="flex flex-col items-center justify-center text-center text-[11px] text-[#9da1ab] py-2 md:py-0">
+                  <span className="font-mono">← One-time ~40 MB model →</span>
+                  <span className="text-[10px] text-white/40">Zero footage leaves your machine</span>
+                </div>
+
+                {/* Box 2: Hugging Face (Model CDN) */}
+                <div className="rounded-lg border border-white/10 bg-[#0b0c0f]/60 p-5">
+                  <span className="font-mono text-xs uppercase tracking-wider text-[#9da1ab]">
+                    Hugging Face (Static CDN)
+                  </span>
+                  <p className="mt-3 text-xs leading-relaxed text-[#9da1ab]">
+                    Downloads quantized Whisper weights once. The file is cached in browser storage for offline editing.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Spec Table */}
             <div className="mt-12 overflow-x-auto">
               <table className="w-full border-collapse border-t border-b border-white/10 text-left text-sm">
                 <thead>
@@ -560,8 +743,17 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ------------------------------------------------------------------ TECHNICAL ARCHITECTURE & LIMITS */}
-        <section id="privacy" tabIndex={-1} aria-labelledby="priv-h" className="border-t border-white/[0.08] bg-[#121316] py-28 focus:outline-none sm:py-36">
+        {/* ------------------------------------------------------------------ TECHNICAL SPECIFICATIONS */}
+        <section
+          id="privacy"
+          tabIndex={-1}
+          aria-labelledby="priv-h"
+          className="border-t border-white/[0.07] bg-[#101216] py-24 focus:outline-none sm:py-32"
+          style={{
+            background:
+              'radial-gradient(ellipse 600px 500px at 85% 60%, rgba(255, 255, 255, 0.05), transparent 70%)',
+          }}
+        >
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="max-w-2xl">
               <h2 id="priv-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
@@ -573,28 +765,28 @@ export default function Landing() {
             </div>
 
             <div className="mt-12 grid gap-6 sm:grid-cols-2">
-              <div className="rounded-xl border border-white/5 bg-[#0c0d10] p-6">
+              <div className="rounded-xl border border-white/5 bg-[#0b0c0f] p-6">
                 <h3 className="text-sm font-semibold text-white">On-Device Processing</h3>
                 <p className="mt-2 text-xs leading-relaxed text-[#9da1ab]">
                   Transcription, clip heuristic scoring, caption rendering, and export run directly in your browser tab. Your video file never touches an external server.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/5 bg-[#0c0d10] p-6">
+              <div className="rounded-xl border border-white/5 bg-[#0b0c0f] p-6">
                 <h3 className="text-sm font-semibold text-white">Whisper Model Cache</h3>
                 <p className="mt-2 text-xs leading-relaxed text-[#9da1ab]">
                   On first use, CutPilot downloads a compact quantized Whisper model (~40 MB) from Hugging Face and caches it in browser storage. Subsequent sessions run locally.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/5 bg-[#0c0d10] p-6">
+              <div className="rounded-xl border border-white/5 bg-[#0b0c0f] p-6">
                 <h3 className="text-sm font-semibold text-white">IndexedDB Session Storage</h3>
                 <p className="mt-2 text-xs leading-relaxed text-[#9da1ab]">
                   Video data is kept in browser IndexedDB while editing choices are stored in localStorage. A page refresh will not erase your in-progress work.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-white/5 bg-[#0c0d10] p-6">
+              <div className="rounded-xl border border-white/5 bg-[#0b0c0f] p-6">
                 <h3 className="text-sm font-semibold text-white">Real-Time MediaRecorder Export</h3>
                 <p className="mt-2 text-xs leading-relaxed text-[#9da1ab]">
                   Because video composition happens on an HTML5 canvas, export captures real-time playback. Keep the browser tab open while exporting.
@@ -605,7 +797,7 @@ export default function Landing() {
         </section>
 
         {/* ------------------------------------------------------------------ FINAL CTA */}
-        <section aria-labelledby="cta-h" className="py-28 text-center sm:py-36">
+        <section aria-labelledby="cta-h" className="py-24 text-center sm:py-32">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <h2 id="cta-h" className="font-serif text-3xl font-normal text-white sm:text-5xl">
               Bring your footage. Review the proposed cut.
@@ -623,7 +815,7 @@ export default function Landing() {
       </main>
 
       {/* ------------------------------------------------------------------ FOOTER */}
-      <footer className="border-t border-white/[0.08] bg-[#0c0d10] py-12">
+      <footer className="border-t border-white/[0.07] bg-[#0b0c0f] py-12">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
             <div className="max-w-[42ch]">

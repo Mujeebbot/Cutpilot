@@ -35,12 +35,12 @@ export function LogoMark({ size = 32, className = '' }: LogoProps) {
           <stop offset="100%" stopColor="#0F1014" />
         </linearGradient>
         <linearGradient id="cp-left" x1="9" y1="8" x2="14" y2="24" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#9C8EFF" />
-          <stop offset="100%" stopColor="#7B68EE" />
+          <stop offset="0%" stopColor="#FFF085" />
+          <stop offset="100%" stopColor="#FFE14D" />
         </linearGradient>
         <linearGradient id="cp-right" x1="16" y1="12" x2="24" y2="20" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#D4CCFF" />
-          <stop offset="100%" stopColor="#AEA0FF" />
+          <stop offset="0%" stopColor="#F5C518" />
+          <stop offset="100%" stopColor="#D4A708" />
         </linearGradient>
       </defs>
 

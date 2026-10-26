@@ -120,19 +120,6 @@ export function CaptionFrame({
       {/* Cinematic Vignette Overlay to ensure caption contrast */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/15" />
 
-      {/* Top Metadata & Live REC Status */}
-      <div className="absolute top-2.5 inset-x-2.5 z-10 flex items-center justify-between text-[11px] font-medium tracking-wide">
-        <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-0.5 text-white/90 backdrop-blur-md border border-white/10">
-          <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-          <span className="font-mono text-[10px]">00:18</span>
-        </div>
-        {badge && (
-          <span className="rounded-full bg-accent-500/25 px-2 py-0.5 text-[10px] text-accent-300 backdrop-blur-md border border-accent-500/40">
-            {badge}
-          </span>
-        )}
-      </div>
-
       {/* Transparent Canvas Layer for Dynamic Captions */}
       <canvas
         ref={canvasRef}
