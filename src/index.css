@@ -67,3 +67,19 @@ input[type='color'] { background: none; border: 0; padding: 0; width: 26px; heig
   scrollbar-width: none;
 }
 
+/* subtle 6s floating animation for review cards */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes float-slow-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(6px); }
+}
+.float-card {
+  animation: float-slow 6s ease-in-out infinite;
+}
+.float-card-delayed {
+  animation: float-slow-delayed 6s ease-in-out infinite;
+}
+

@@ -123,12 +123,18 @@ export default function Landing() {
         <rect width="100%" height="100%" fill="url(#timeline-ruler)" />
       </svg>
 
-      {/* Scroll Playhead (fixed 1px accent-yellow line at content margin, hidden <1024px) */}
+      {/* Scroll Playhead (fixed 1px line at content margin, fading from nav to 120px below, hidden <1024px) */}
       <div
-        className="pointer-events-none fixed top-0 bottom-0 z-40 hidden lg:block left-[max(0.75rem,calc((100vw-72rem)/2-2rem))]"
+        className="pointer-events-none fixed top-16 bottom-0 z-40 hidden lg:block left-[max(1rem,calc((100vw-72rem)/2))]"
         aria-hidden="true"
       >
-        <div className="relative h-full w-px bg-white/[0.06]">
+        <div
+          className="relative h-full w-px"
+          style={{
+            background:
+              'linear-gradient(to bottom, transparent 0px, rgba(255, 255, 255, 0.1) 120px, rgba(255, 255, 255, 0.05) 100%)',
+          }}
+        >
           <div className="sticky top-24 -ml-2.5 flex items-center gap-1.5 transition-transform duration-75">
             <span className="grid h-5 w-5 place-items-center rounded bg-[#0b0c0f] border border-[#ffe14d]/70 text-[#ffe14d] shadow-[0_0_12px_rgba(255,225,77,0.35)]">
               <span className="h-2 w-0.5 bg-[#ffe14d]" />
@@ -185,7 +191,7 @@ export default function Landing() {
             {resume && (
               <Link
                 to="/editor"
-                className="hidden whitespace-nowrap text-xs text-[#ffe14d] transition-colors hover:underline lg:inline-flex"
+                className="hidden whitespace-nowrap text-xs text-white/60 transition-opacity hover:text-white hover:opacity-100 lg:inline-flex"
                 title={resume.videoName}
               >
                 Continue “{resumeName}” →
@@ -230,7 +236,7 @@ export default function Landing() {
               GitHub
             </a>
             {resume && (
-              <Link to="/editor" className="block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-[#ffe14d] hover:bg-white/5">
+              <Link to="/editor" className="block whitespace-nowrap rounded-md px-3 py-2 text-sm text-white/60 hover:text-white hover:bg-white/5">
                 Continue “{resumeName}” →
               </Link>
             )}
@@ -244,7 +250,7 @@ export default function Landing() {
           className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28"
           style={{
             background:
-              'radial-gradient(ellipse 700px 550px at 70% 10%, rgba(255, 225, 77, 0.12), transparent 70%), radial-gradient(circle 600px at 10% 80%, rgba(100, 160, 220, 0.04), transparent 70%)',
+              'radial-gradient(ellipse 520px 520px at 68% 45%, rgba(245, 184, 0, 0.14) 0%, rgba(245, 184, 0, 0.04) 55%, transparent 70%), radial-gradient(circle 500px at 10% 85%, rgba(100, 160, 220, 0.05), transparent 70%)',
           }}
         >
           {/* Top subtle vignette so nav reads clearly */}
@@ -255,10 +261,10 @@ export default function Landing() {
             <div className="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center">
               <div>
                 {/* Refined Display Serif Headline */}
-                <h1 className="font-serif text-[clamp(2.75rem,6.5vw,5rem)] font-normal leading-[1.04] tracking-[-0.02em] text-[#f3f1ec]">
+                <h1 className="font-serif text-[clamp(2.75rem,6.5vw,5rem)] font-normal leading-[1.12] tracking-[-0.02em] text-[#f3f1ec]">
                   <span className="block">Your footage.</span>
                   <span className="block">Your vision.</span>
-                  <span className="mt-2 block">
+                  <span className="mt-4 block">
                     <span
                       className={`relative inline-block rounded-xl px-4 py-1.5 transition-all duration-700 ${
                         accepted
@@ -281,14 +287,13 @@ export default function Landing() {
                   </span>
                 </h1>
 
-                {/* Editor-Voice Value Proposition */}
-                <p className="mt-8 max-w-[50ch] text-base leading-relaxed text-[#9da1ab] sm:text-lg">
-                  CutPilot turns raw footage into proposed edits you review clip by clip, with word-level snapping,
-                  trim handles, and kinetic captions. Transcription runs entirely on your device with Whisper.
+                {/* Editor-Voice Value Proposition (Two Lines) */}
+                <p className="mt-7 max-w-[46ch] text-base leading-relaxed text-[#9da1ab] sm:text-lg">
+                  CutPilot turns raw footage into proposed edits you review clip by clip. Transcription runs entirely on your device.
                 </p>
 
                 {/* CTA Group */}
-                <div className="mt-9 flex flex-wrap items-center gap-5">
+                <div className="mt-8 flex flex-wrap items-center gap-5">
                   <button onClick={() => setDialog(true)} className={`${btnPrimary} h-12 px-7 text-sm`}>
                     Start creating
                   </button>
@@ -302,20 +307,53 @@ export default function Landing() {
                   </a>
                 </div>
 
-                {/* Quiet Guarantees Line */}
-                <p className="mt-7 text-xs text-[#9da1ab]">
-                  On-device Whisper <span className="mx-2 text-white/20">·</span> Zero cloud uploads{' '}
-                  <span className="mx-2 text-white/20">·</span> Multi-clip timeline with trim handles
-                </p>
+                {/* Trust Row: 14px text at 60% white, thin icons, hairline separators */}
+                <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/60">
+                  <div className="flex items-center gap-1.5">
+                    <Icon name="check" size={14} className="text-[#ffe14d]" />
+                    <span>On-device Whisper</span>
+                  </div>
+                  <span className="text-white/20">|</span>
+                  <div className="flex items-center gap-1.5">
+                    <Icon name="check" size={14} className="text-[#ffe14d]" />
+                    <span>Zero cloud uploads</span>
+                  </div>
+                  <span className="text-white/20">|</span>
+                  <div className="flex items-center gap-1.5">
+                    <Icon name="check" size={14} className="text-[#ffe14d]" />
+                    <span>Multi-clip timeline</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Right Column: Vertical 9:16 Phone Frame with Overlap & Parallax */}
+              {/* Right Column: Vertical 9:16 Phone Frame with Overlap, Floating Cards & Parallax */}
               <div
-                className="relative mx-auto w-full max-w-[280px] lg:max-w-[320px] lg:-mb-20 z-20 transition-transform ease-out duration-75"
+                className="relative mx-auto w-full max-w-[280px] lg:max-w-[310px] lg:-mb-20 z-20 transition-transform ease-out duration-75"
                 style={{ transform: `translateY(${parallaxY}px)` }}
               >
-                <div className="relative rounded-[2rem] border-2 border-white/20 bg-[#101216] p-2 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] ring-1 ring-black">
-                  <div className="overflow-hidden rounded-[1.6rem]">
+                {/* Floating Review Card 1 (Top-Left) */}
+                <div className="absolute top-14 -left-10 sm:-left-16 z-30 flex items-center gap-2.5 rounded-[10px] border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-xs backdrop-blur-md shadow-xl float-card">
+                  <div className="flex items-center gap-1.5 text-white/90">
+                    <span className="font-mono text-[11px] font-medium text-white">Clip 1</span>
+                    <span className="text-white/30">·</span>
+                    <span className="font-mono text-[11px] text-[#9da1ab]">0:11–0:31</span>
+                    <span className="text-white/30">·</span>
+                    <span className="text-[11px] text-[#f3f1ec]">Accepted</span>
+                  </div>
+                  <span className="rounded bg-[#ffe14d] px-1.5 py-0.5 font-mono text-[9px] font-bold text-black">
+                    Score 96
+                  </span>
+                </div>
+
+                {/* Floating Review Card 2 (Bottom-Left) */}
+                <div className="absolute bottom-20 -left-6 sm:-left-10 z-30 flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.06] px-3 py-1.5 text-xs backdrop-blur-md shadow-xl float-card-delayed">
+                  <span className="font-mono text-[11px] text-[#ffe14d]">Pause cut</span>
+                  <span className="font-mono text-[11px] text-white/90">-4.8s</span>
+                </div>
+
+                {/* Phone Frame: bezel 6px, radius 36px, 1px inner highlight at top edge, no outer ring */}
+                <div className="relative rounded-[36px] p-[6px] border border-white/10 border-t-white/30 bg-[#121316] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)]">
+                  <div className="overflow-hidden rounded-[30px]">
                     <CaptionFrame
                       templateId="heavy-pop"
                       text="The *FIRST* cut is ready to review"
@@ -331,18 +369,14 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Studio Screenshot Display with Soft Yellow Glow & Top Edge Highlight */}
-            <div className="relative mt-12 sm:mt-16 z-10">
-              <div className="overflow-hidden rounded-2xl border border-white/10 border-t-white/25 bg-[#101216] shadow-[0_20px_70px_-15px_rgba(255,225,77,0.12)]">
+            {/* Studio Screenshot Display: ~1100px wide, soft amber glow, top-edge highlight */}
+            {/* TODO: Replace with /public/media/product/studio.webp when capture script is generated */}
+            <div className="relative mt-12 sm:mt-16 z-10 w-full max-w-[1100px] mx-auto">
+              <div className="overflow-hidden rounded-2xl border border-white/10 border-t-white/30 bg-[#101216] shadow-[0_25px_80px_-20px_rgba(245,184,0,0.14)]">
                 <div className="flex h-10 items-center justify-between border-b border-white/[0.07] bg-[#14161b] px-4">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                    <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                    <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-                    <span className="ml-3 font-mono text-xs text-[#9da1ab]">
-                      CutPilot Studio · Proposed clips &amp; multi-clip timeline
-                    </span>
-                  </div>
+                  <span className="font-mono text-xs text-[#9da1ab]">
+                    CutPilot Studio · Proposed clips &amp; multi-clip timeline
+                  </span>
                   <div className="flex items-center gap-3 text-xs font-mono text-[#9da1ab]">
                     <span>Score: 96</span>
                     <span className="hidden sm:inline">· 100% On-Device</span>
