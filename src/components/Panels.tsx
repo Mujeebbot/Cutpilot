@@ -14,8 +14,8 @@ import type { IconName } from './icons'
 
 function Empty({ icon, title, text, children }: { icon: IconName; title: string; text: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-white/10 px-5 py-7 text-center">
-      <span className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-ink-800 text-accent-400"><Icon name={icon} size={20} /></span>
+    <div className="rounded-xl border border-dashed border-white/15 bg-ink-850/50 px-5 py-7 text-center">
+      <span className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-xl border border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-[0_0_15px_rgba(139,124,246,0.15)]"><Icon name={icon} size={20} /></span>
       <p className="font-display text-sm font-semibold text-fg">{title}</p>
       <p className="mx-auto mt-1 max-w-[30ch] text-xs leading-relaxed text-mute">{text}</p>
       {children && <div className="mt-4 flex flex-wrap justify-center gap-2">{children}</div>}

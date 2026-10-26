@@ -695,14 +695,65 @@ export default function App() {
               onMove={(id, x, y) => updateCaption(id, { x, y })} videoProps={videoProps}
             />
             {!url && (
-              <div className={`absolute inset-4 grid place-items-center rounded-xl border border-dashed transition-colors ${dragOver ? 'border-accent-400 bg-accent-500/10' : 'border-white/10'}`}>
-                <div className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
-                  {recoverInfo && pendingRecover && <RecoverCard info={recoverInfo} onRestore={restore} onDiscard={discard} />}
-                  <button onClick={() => fileInput.current?.click()} className="group flex flex-col items-center rounded-xl px-6 py-4 transition-colors hover:bg-white/[0.03]">
-                    <span className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-ink-800 text-accent-400"><Icon name="upload" size={26} /></span>
-                    <span className="font-display text-xl font-semibold text-fg">Drop a video here</span>
-                    <span className="mt-1.5 text-sm text-mute">or click to browse — MP4, WebM or MOV your browser can play</span>
-                  </button>
+              <div
+                className={`absolute inset-4 grid place-items-center rounded-2xl border transition-all duration-200 ${
+                  dragOver
+                    ? 'border-accent-400 bg-accent-500/15 ring-4 ring-accent-400/20'
+                    : 'border-white/10 bg-gradient-to-b from-ink-900/40 via-ink-950/70 to-ink-950/90'
+                }`}
+              >
+                <div className="relative flex w-full max-w-md flex-col items-center p-6 text-center">
+                  {recoverInfo && pendingRecover && (
+                    <div className="mb-4 w-full">
+                      <RecoverCard info={recoverInfo} onRestore={restore} onDiscard={discard} />
+                    </div>
+                  )}
+
+                  <div className="relative mb-5">
+                    <div className="absolute -inset-2 rounded-full bg-accent-500/20 blur-xl" />
+                    <button
+                      onClick={() => fileInput.current?.click()}
+                      className="group relative grid h-16 w-16 place-items-center rounded-2xl border border-accent-500/40 bg-gradient-to-b from-accent-500/20 to-accent-600/10 text-accent-300 shadow-[0_0_30px_rgba(139,124,246,0.3)] transition-all duration-200 hover:scale-105 hover:border-accent-400 hover:text-white"
+                      title="Choose video file"
+                    >
+                      <Icon name="upload" size={28} />
+                    </button>
+                  </div>
+
+                  <h3 className="font-display text-xl font-bold tracking-tight text-white">
+                    Drop your footage to start
+                  </h3>
+                  <p className="mt-2 max-w-xs text-xs leading-relaxed text-mute">
+                    Drag and drop any raw clip or click below. CutPilot creates AI drafts and burns kinetic captions on your device.
+                  </p>
+
+                  <div className="mt-5 flex items-center gap-3">
+                    <button
+                      onClick={() => fileInput.current?.click()}
+                      className={`${btnPrimary} h-9 px-5 shadow-[0_0_20px_rgba(139,124,246,0.35)]`}
+                    >
+                      <Icon name="folder" size={15} />
+                      <span>Choose video file</span>
+                    </button>
+                    <Link
+                      to="/"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-ink-800 px-3 text-xs text-mute transition-colors hover:border-white/20 hover:text-fg"
+                    >
+                      <Icon name="left" size={13} />
+                      <span>Landing page</span>
+                    </Link>
+                  </div>
+
+                  {/* Compatibility Badges */}
+                  <div className="mt-7 flex flex-wrap items-center justify-center gap-2 border-t border-white/[0.08] pt-5 text-[11px] text-mute">
+                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">MP4 / H.264</span>
+                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">WebM</span>
+                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">MOV</span>
+                    <span className="rounded-md border border-white/5 bg-ink-850 px-2 py-0.5">Up to 4K</span>
+                    <span className="flex items-center gap-1 rounded-md border border-teal-500/20 bg-teal-500/10 px-2 py-0.5 text-teal-300">
+                      <Icon name="check" size={11} /> 100% On-Device
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

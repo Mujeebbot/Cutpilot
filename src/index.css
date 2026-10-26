@@ -46,3 +46,20 @@ input[type='color'] { background: none; border: 0; padding: 0; width: 26px; heig
 /* landing hero: the headline is cut in like three clips, one after another */
 @keyframes cut-in { from { clip-path: inset(-14px 100% -14px -14px); opacity: 0.2; } to { clip-path: inset(-14px -14px -14px -14px); opacity: 1; } }
 .cut-in { animation: cut-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* premium landing styling */
+.hero-glow {
+  background: radial-gradient(circle at 50% -20%, rgba(139, 124, 246, 0.18) 0%, rgba(111, 95, 224, 0.08) 35%, transparent 70%);
+}
+.hero-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 50%, transparent 100%);
+}
+.glass-panel {
+  background: rgba(24, 26, 30, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+

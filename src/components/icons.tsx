@@ -30,6 +30,8 @@ const PATHS = {
   clips: s('M3 7h7v10H3zM14 7h7v10h-7zM10 12h4'),
   up: s('M6 15l6-6 6 6'),
   down: s('M6 9l6 6 6-6'),
+  left: s('M15 18l-6-6 6-6'),
+  right: s('M9 6l6 6-6 6'),
   film: s('M4 5h16v14H4zM10 9.5v5l4.5-2.5z'),
 } as const
 

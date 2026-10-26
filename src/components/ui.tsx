@@ -2,9 +2,9 @@ import type { ReactNode } from 'react'
 import { Icon } from './icons'
 import type { IconName } from './icons'
 
-const base = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40'
-export const btn = `${base} h-8 border border-line bg-ink-800 px-3 text-fg hover:bg-ink-700 disabled:hover:bg-ink-800`
-export const btnPrimary = `${base} h-8 bg-accent-500 px-3.5 font-semibold text-white hover:bg-accent-400 disabled:hover:bg-accent-500`
+const base = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40'
+export const btn = `${base} h-8 border border-line bg-ink-800 px-3 text-fg hover:border-white/20 hover:bg-ink-700 disabled:hover:bg-ink-800`
+export const btnPrimary = `${base} h-8 bg-accent-500 px-3.5 font-semibold text-white shadow-sm hover:bg-accent-400 hover:shadow-[0_0_16px_rgba(139,124,246,0.4)] active:scale-[0.98] disabled:hover:bg-accent-500`
 export const btnDanger = `${base} h-8 border border-line bg-ink-800 px-3 text-red-300 hover:bg-red-950/60`
 export const input = 'w-full rounded-md border border-line bg-ink-950 px-2.5 py-1.5 text-sm text-fg placeholder:text-dim hover:border-white/15 focus:border-accent-500 focus:outline-none'
 

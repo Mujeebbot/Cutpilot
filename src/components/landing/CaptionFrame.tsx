@@ -1,54 +1,138 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Caption } from '../../types'
 import { drawCaption } from '../../lib/render'
 import { ensureFonts } from '../../lib/fonts'
 import { templateById } from '../../lib/templates'
 
-/**
- * A still of a colour-graded interview frame (painted with canvas, placeholder footage) with a caption drawn by
- * CutPilot's real caption renderer and one of its real templates, so what the page shows is what the product produces.
- */
-function paintScene(ctx: CanvasRenderingContext2D, W: number, H: number) {
-  const g = ctx.createLinearGradient(0, 0, 0, H)
-  g.addColorStop(0, '#1f4a4e'); g.addColorStop(0.55, '#163538'); g.addColorStop(1, '#0d1f22')
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-  // practical light in the background (sodium amber) and a window of cool light
-  ctx.fillStyle = 'rgba(224,164,88,0.9)'; ctx.fillRect(W * 0.08, H * 0.12, W * 0.14, H * 0.26)
-  ctx.fillStyle = 'rgba(224,164,88,0.25)'; ctx.fillRect(W * 0.04, H * 0.1, W * 0.22, H * 0.3)
-  ctx.fillStyle = 'rgba(160,200,205,0.18)'; ctx.fillRect(W * 0.7, H * 0.08, W * 0.2, H * 0.34)
-  // shoulders and head, lit warm from camera left
-  ctx.fillStyle = '#1a1d22'
-  ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.98, W * 0.46, H * 0.3, 0, Math.PI, 0); ctx.fill()
-  const skin = ctx.createRadialGradient(W * 0.44, H * 0.38, W * 0.02, W * 0.5, H * 0.42, W * 0.22)
-  skin.addColorStop(0, '#d9a47c'); skin.addColorStop(1, '#8a5a40')
-  ctx.fillStyle = skin
-  ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.42, W * 0.16, H * 0.14, 0, 0, Math.PI * 2); ctx.fill()
-  ctx.fillStyle = '#2a1d18'
-  ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.33, W * 0.17, H * 0.085, 0, Math.PI, 0); ctx.fill()
-  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, 0, W, H)
-}
-
-export function CaptionFrame({ templateId, text, activeWord = 1, width = 270, height = 480, y = 0.78, className = '' }: {
-  templateId: string; text: string; activeWord?: number; width?: number; height?: number; y?: number; className?: string
+export function CaptionFrame({
+  templateId,
+  text,
+  activeWord = 1,
+  width = 270,
+  height = 480,
+  y = 0.74,
+  imageSrc = '/media/creator-reel-1.jpg',
+  badge,
+  animate = true,
+  className = '',
+}: {
+  templateId: string
+  text: string
+  activeWord?: number
+  width?: number
+  height?: number
+  y?: number
+  imageSrc?: string
+  badge?: string
+  animate?: boolean
+  className?: string
 }) {
-  const ref = useRef<HTMLCanvasElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [hover, setHover] = useState(false)
+
   useEffect(() => {
     const t = templateById(templateId)
-    const c = ref.current
+    const c = canvasRef.current
     if (!t || !c) return
     let dead = false
-    const toks = text.split(/\s+/)
-    const cap: Caption = { id: 'demo', start: 0, end: toks.length, text, x: 0.5, y, words: toks.map((w, i) => ({ t: w.replace(/\*/g, ''), s: i, e: i + 1 })) }
-    const draw = () => {
-      if (dead) return
-      const ctx = c.getContext('2d')!
-      ctx.clearRect(0, 0, c.width, c.height)
-      paintScene(ctx, c.width, c.height)
-      drawCaption(ctx, c.width, c.height, cap, t.style, Math.min(activeWord, toks.length - 1) + 0.5)
+    const toks = text.split(/\s+/).filter(Boolean)
+    const wordDuration = 0.42
+    const totalDuration = toks.length * wordDuration + 0.8
+
+    const cap: Caption = {
+      id: 'demo',
+      start: 0,
+      end: toks.length * wordDuration,
+      text,
+      x: 0.5,
+      y,
+      words: toks.map((w, i) => ({
+        t: w.replace(/\*/g, ''),
+        s: i * wordDuration,
+        e: (i + 1) * wordDuration,
+      })),
     }
-    draw()
-    void ensureFonts([t.style]).then(draw)
-    return () => { dead = true }
-  }, [templateId, text, activeWord, y])
-  return <canvas ref={ref} width={width * 2} height={height * 2} role="img" aria-label={`Example frame with the “${templateById(templateId)?.name ?? ''}” caption style: ${text.replace(/\*/g, '')}`} className={className} style={{ aspectRatio: `${width} / ${height}` }} />
+
+    let start = performance.now()
+    let rafId: number
+
+    const renderFrame = (now: number) => {
+      if (dead || !c) return
+      const ctx = c.getContext('2d')
+      if (!ctx) return
+
+      ctx.clearRect(0, 0, c.width, c.height)
+
+      let timeSec: number
+      if (animate || hover) {
+        const elapsed = ((now - start) / 1000) % totalDuration
+        timeSec = elapsed
+      } else {
+        timeSec = Math.min(activeWord, toks.length - 1) * wordDuration + 0.2
+      }
+
+      drawCaption(ctx, c.width, c.height, cap, t.style, timeSec)
+
+      if (animate || hover) {
+        rafId = requestAnimationFrame(renderFrame)
+      }
+    }
+
+    void ensureFonts([t.style]).then(() => {
+      if (!dead) {
+        start = performance.now()
+        rafId = requestAnimationFrame(renderFrame)
+      }
+    })
+
+    return () => {
+      dead = true
+      cancelAnimationFrame(rafId)
+    }
+  }, [templateId, text, activeWord, y, animate, hover])
+
+  return (
+    <div
+      className={`group relative overflow-hidden rounded-xl border border-white/10 bg-slate shadow-2xl transition-all duration-300 hover:border-accent-500/40 hover:shadow-[0_0_30px_-5px_rgba(139,124,246,0.3)] ${className}`}
+      style={{ aspectRatio: `${width} / ${height}` }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {/* Background Creator Footage Image */}
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-b from-[#181a20] via-[#121316] to-[#0a0b0e]" />
+      )}
+
+      {/* Cinematic Vignette Overlay to ensure caption contrast */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/15" />
+
+      {/* Top Metadata & Live REC Status */}
+      <div className="absolute top-2.5 inset-x-2.5 z-10 flex items-center justify-between text-[11px] font-medium tracking-wide">
+        <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-0.5 text-white/90 backdrop-blur-md border border-white/10">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+          <span className="font-mono text-[10px]">00:18</span>
+        </div>
+        {badge && (
+          <span className="rounded-full bg-accent-500/25 px-2 py-0.5 text-[10px] text-accent-300 backdrop-blur-md border border-accent-500/40">
+            {badge}
+          </span>
+        )}
+      </div>
+
+      {/* Transparent Canvas Layer for Dynamic Captions */}
+      <canvas
+        ref={canvasRef}
+        width={width * 2}
+        height={height * 2}
+        className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+      />
+    </div>
+  )
 }
