@@ -109,14 +109,8 @@ export default function App() {
   const [, bumpHist] = useState(0)
   const [recover, setRecover] = useState<Saved | null>(() => readAutosave())
   const [asave, setAsave] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; at?: number; msg?: string }>({ state: 'idle' })
-  const [narrowWarn, setNarrowWarn] = useState(false)
-
-  useEffect(() => {
-    const checkWidth = () => { if (window.innerWidth < 920) setNarrowWarn(true) }
-    checkWidth()
-    window.addEventListener('resize', checkWidth)
-    return () => window.removeEventListener('resize', checkWidth)
-  }, [])
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
 
   useEffect(() => { document.documentElement.classList.add('app-lock'); return () => document.documentElement.classList.remove('app-lock') }, [])
   const err = (text: string) => setNote({ kind: 'error', text })
@@ -674,7 +668,7 @@ export default function App() {
   }
 
   const selDur = seqLen
-  const selectFromTimeline = (id: string) => { setSelId(id); setTool('captions') }
+  const selectFromTimeline = (id: string) => { setSelId(id); setTool('captions'); setMobileDrawerOpen(true) }
   const status = asave.state === 'error' ? `Autosave failed — ${asave.msg}` : asave.state === 'saving' ? 'Saving…'
     : asave.state === 'saved' ? `Autosaved ${new Date(asave.at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Temporary workspace'
   const dot = asave.state === 'error' ? 'bg-red-400' : asave.state === 'saved' ? 'bg-emerald-400' : 'bg-amber-200'
@@ -690,46 +684,121 @@ export default function App() {
   const curTool = TOOLS.find((t) => t.id === tool)!
   const keysBtn = useMemo(() => <IconButton icon="keyboard" label="Keyboard shortcuts (?)" onClick={() => setShowKeys(true)} />, [])
 
+  const toolPanels = (
+    <>
+      {tool === 'media' && (
+        <MediaPanel file={file} dims={dims} duration={duration} selection={selDur} canvas={canvas} outSize={outSize}
+          recover={pendingRecover ? recoverInfo : null} onRestore={restore} onDiscard={discard}
+          onCanvas={(c) => setCanvas((cv) => ({ ...cv, ...c }))}
+          onOpen={() => fileInput.current?.click()} onSaveProject={saveProject} onLoadProject={() => projInput.current?.click()} />
+      )}
+      {tool === 'captions' && (
+        <CaptionsPanel
+          captions={captions} selId={selId} time={time} hasVideo={hasVideo} density={density} suggestedWords={suggestedWords}
+          onSelect={setSelId} onAdd={addCaption} onUpdate={updateCaption} onDelete={deleteCaption}
+          onClear={() => { setCaptions([]); setSelId(null) }} onDensity={changeDensity} onApplyEmojis={applyEmojis}
+          onImportText={importText} onImportSrt={(f) => void importSrt(f)}
+          onDownloadSrt={() => download(new Blob([toSrt(captions)], { type: 'text/plain' }), `${baseName}.srt`)}
+          onSeek={seek} onGoto={(t) => { setTool(t); setMobileDrawerOpen(true) }}
+        />
+      )}
+      {tool === 'styles' && (
+        <StylesPanel
+          style={targetStyle} presetId={targetPreset} scope={effScope} hasSelected={!!selCap} ownStyle={effScope === 'selected' && !!selCap?.style}
+          hasCaptions={captions.length > 0} fontTick={fontTick}
+          onScope={setScope} onApply={applyTemplate} onPatch={patchStyle} onReset={resetStyle} onUseGlobal={useGlobalStyle} onSetAllY={setAllY}
+        />
+      )}
+      {tool === 'draft' && (
+        <DraftPanel clips={clips} ranges={ranges} selId={selClipId} hasPlan={!!plan} hasVideo={hasVideo} busy={exporting} planApplied={!!plan?.appliedAt}
+          onOpenDraft={() => setView('draft')} onSelect={(id) => { selectClip(id); const c = clips.find((k) => k.id === id); if (c) seekSource(c.start) }}
+          onMove={moveClip} onRemove={removeClip} onRange={updateClipRange} onClear={clearClips} onRegenCaptions={regenCaptions}
+          onSplit={splitClip} canSplit={canSplit} />
+      )}
+      {tool === 'ai' && <AiPanel hasVideo={hasVideo} ai={ai} selection={Math.max(0, trim.end - trim.start)} density={density} lastRun={lastRun} onDensity={changeDensity} onTranscribe={(m) => void runTranscribe(m)} />}
+      {tool === 'assistant' && (
+        <AssistantPanel
+          snapshot={{
+            captionsCount: captions.length,
+            templateName: templateById(presetId)?.name ?? 'Custom',
+            canvasAspect: canvas.aspect,
+            duration,
+            clipsCount: clips.length,
+            trim,
+          }}
+          onDensity={(n) => changeDensity(n)}
+          onApplyTemplate={(t) => applyTemplate(t)}
+          onSetAllY={(y) => setAllY(y)}
+          onSetCanvas={(aspect) => setCanvas((cv) => ({ ...cv, aspect }))}
+          onClearCaptions={() => setCaptions([])}
+          onTrim={(tr) => setTrim((cur) => ({ start: tr.start ?? cur.start, end: tr.end ?? cur.end }))}
+          onUndo={undo}
+          onRedo={redo}
+        />
+      )}
+    </>
+  )
+
   return (
-    <div className="grid h-dvh min-w-[920px] grid-rows-[48px_minmax(0,1fr)] overflow-hidden bg-ink-950"
+    <div className="flex h-dvh w-full min-w-0 max-w-full flex-col overflow-hidden bg-ink-950"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) openVideo(f) }}>
-      <header className="flex items-center gap-2 border-b border-line bg-ink-900 px-3">
-        <Link to="/" aria-label="CutPilot home (your project is kept)" title="Back to the CutPilot home page. Your project is kept." className="flex items-center gap-0 rounded-md focus-visible:outline-2">
-          <span className="flex w-[56px] items-center justify-center"><LogoMark size={28} /></span>
-          <span className="font-display text-[15px] font-semibold tracking-tight">CutPilot</span>
+      <header className="flex h-12 shrink-0 items-center gap-1.5 sm:gap-2 border-b border-line bg-ink-900 px-2 sm:px-3">
+        <Link to="/" aria-label="CutPilot home (your project is kept)" title="Back to the CutPilot home page. Your project is kept." className="flex items-center gap-1 rounded-md focus-visible:outline-2 shrink-0">
+          <span className="flex w-7 sm:w-8 items-center justify-center"><LogoMark size={24} /></span>
+          <span className="hidden sm:inline font-display text-[15px] font-semibold tracking-tight">CutPilot</span>
         </Link>
-        <span className="mx-1 h-4 w-px bg-line" />
+        <span className="h-4 w-px bg-line shrink-0" />
         <input aria-label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} spellCheck={false}
-          className="h-8 w-44 rounded-md bg-transparent px-2 text-sm text-fg transition-colors hover:bg-ink-800 focus:bg-ink-800 focus:outline-none" />
-        <button onClick={newProject} className={`${btn} h-8 text-xs text-mute hover:text-fg`} title="Start a fresh project">New project</button>
-        {ai && view === 'editor' && <button onClick={() => setView('draft')} className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-accent-500/50 bg-accent-500/10 px-2.5 py-1 text-[11px] text-fg" title={ai.label}><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-400" />Drafting… open</button>}
+          className="h-8 w-24 sm:w-44 shrink rounded-md bg-transparent px-1.5 sm:px-2 text-xs sm:text-sm text-fg transition-colors hover:bg-ink-800 focus:bg-ink-800 focus:outline-none truncate" />
+        <button onClick={newProject} className={`hidden md:inline-flex ${btn} h-8 text-xs text-mute hover:text-fg`} title="Start a fresh project">New project</button>
+        {ai && view === 'editor' && <button onClick={() => setView('draft')} className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-accent-500/50 bg-accent-500/10 px-2 sm:px-2.5 py-1 text-[11px] text-fg" title={ai.label}><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-400" /><span className="hidden sm:inline">Drafting…</span> open</button>}
         <span title="Captions, style, trim and canvas are autosaved in this browser's storage. The video is kept in this browser (IndexedDB) so a refresh does not lose it, and is never uploaded. Use Save project for a portable backup."
-          className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[11px] text-mute">
-          <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{status}
+          className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2 sm:px-2.5 py-1 text-[11px] text-mute">
+          <span className={`h-1.5 w-1.5 rounded-full ${dot}`} /><span className="hidden sm:inline">{status}</span>
         </span>
-        <div className="ml-auto flex items-center gap-1">
-          <select aria-label="Canvas aspect ratio" title="Canvas — used by preview and export" value={canvas.aspect} onChange={(e) => setCanvas((c) => ({ ...c, aspect: e.target.value as Aspect }))} disabled={exporting}
-            className="mr-1 h-8 rounded-md border border-line bg-ink-950 px-2.5 text-xs text-fg hover:border-white/20 focus:border-accent-500 focus:outline-none transition-colors cursor-pointer">
-            <option value="source">Canvas: Original</option><option value="9:16">Canvas: 9:16 vertical</option><option value="1:1">Canvas: 1:1 square</option><option value="16:9">Canvas: 16:9 landscape</option>
-          </select>
-          <IconButton icon="undo" label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo || exporting} />
-          <IconButton icon="redo" label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo || exporting} />
-          <span className="mx-1.5 h-4 w-px bg-line" />
-          {keysBtn}
-          <IconButton icon="folder" label="Load project" onClick={() => projInput.current?.click()} disabled={exporting} />
-          <IconButton icon="save" label="Save project file" onClick={saveProject} disabled={exporting} />
-          <button className={`${btnPrimary} ml-2 h-8`} onClick={doExport} disabled={!hasVideo || exporting} title="Render the selected range with captions to a video file">
-            <Icon name="download" size={15} />Export
-          </button>
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+          {/* Desktop Header Controls */}
+          <div className="hidden lg:flex items-center gap-1">
+            <select aria-label="Canvas aspect ratio" title="Canvas — used by preview and export" value={canvas.aspect} onChange={(e) => setCanvas((c) => ({ ...c, aspect: e.target.value as Aspect }))} disabled={exporting}
+              className="mr-1 h-8 rounded-md border border-line bg-ink-950 px-2.5 text-xs text-fg hover:border-white/20 focus:border-accent-500 focus:outline-none transition-colors cursor-pointer">
+              <option value="source">Canvas: Original</option><option value="9:16">Canvas: 9:16 vertical</option><option value="1:1">Canvas: 1:1 square</option><option value="16:9">Canvas: 16:9 landscape</option>
+            </select>
+            <IconButton icon="undo" label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo || exporting} />
+            <IconButton icon="redo" label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo || exporting} />
+            <span className="mx-1.5 h-4 w-px bg-line" />
+            {keysBtn}
+            <IconButton icon="folder" label="Load project" onClick={() => projInput.current?.click()} disabled={exporting} />
+            <IconButton icon="save" label="Save project file" onClick={saveProject} disabled={exporting} />
+            <button className={`${btnPrimary} ml-2 h-8`} onClick={doExport} disabled={!hasVideo || exporting} title="Render the selected range with captions to a video file">
+              <Icon name="download" size={15} />Export
+            </button>
+          </div>
+          {/* Mobile Header Controls */}
+          <div className="flex lg:hidden items-center gap-1">
+            <IconButton icon="undo" label="Undo" onClick={undo} disabled={!canUndo || exporting} />
+            <IconButton icon="redo" label="Redo" onClick={redo} disabled={!canRedo || exporting} />
+            <button className={`${btnPrimary} h-7 px-2 text-xs ml-0.5`} onClick={doExport} disabled={!hasVideo || exporting} title="Export video">
+              <Icon name="download" size={13} /><span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              onClick={() => setMobileMoreOpen(true)}
+              className="grid h-8 w-8 place-items-center rounded-md border border-line bg-ink-850 text-mute hover:bg-ink-800 hover:text-fg transition-colors"
+              aria-label="More options"
+              title="More options"
+            >
+              <Icon name="dots" size={16} />
+            </button>
+          </div>
         </div>
         <input ref={fileInput} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openVideo(f); e.target.value = '' }} />
         <input ref={projInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void loadProject(f); e.target.value = '' }} />
       </header>
 
-      <div className="grid min-h-0 grid-cols-[68px_minmax(0,1fr)_340px] xl:grid-cols-[68px_minmax(0,1fr)_372px]">
-        <nav aria-label="Tools" className="flex flex-col items-stretch gap-1 border-r border-line bg-ink-900 px-1.5 py-2">
+      <div className="flex flex-col lg:grid lg:grid-cols-[68px_minmax(0,1fr)_340px] xl:lg:grid-cols-[68px_minmax(0,1fr)_372px] min-h-0 min-w-0 flex-1 overflow-hidden">
+        {/* Desktop Left Rail Navigation */}
+        <nav aria-label="Tools" className="hidden lg:flex flex-col items-stretch gap-1 border-r border-line bg-ink-900 px-1.5 py-2">
           {TOOLS.map((t) => (
             <button key={t.id} onClick={() => setTool(t.id)} aria-current={tool === t.id} title={t.sub}
               className={`relative flex h-[58px] flex-col items-center justify-center gap-1 rounded-lg text-[11px] transition-colors ${tool === t.id ? 'bg-accent-500/15 text-white' : 'text-mute hover:bg-ink-800 hover:text-fg'}`}>
@@ -740,11 +809,12 @@ export default function App() {
           ))}
         </nav>
 
-        <main className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto_auto_auto]">
-          <div className="relative min-h-0 p-4" style={{ background: 'radial-gradient(ellipse at 50% 30%, #14151b 0%, #0a0b0e 75%)' }}>
+        {/* Main Center Area */}
+        <main className="flex-1 min-h-0 min-w-0 grid grid-rows-[minmax(0,1fr)_auto_auto_auto] overflow-hidden">
+          <div className="relative min-h-0 p-2 sm:p-4" style={{ background: 'radial-gradient(ellipse at 50% 30%, #14151b 0%, #0a0b0e 75%)' }}>
             <Stage
               videoRef={videoRef} url={url} dims={outSize} canvas={canvas} time={time} frameTick={frameTick} captions={captions} style={style}
-              selId={selId} fontTick={fontTick} onSelect={setSelId} onTogglePlay={togglePlay}
+              selId={selId} fontTick={fontTick} onSelect={(id) => { setSelId(id); if (id) { setTool('captions'); setMobileDrawerOpen(true) } }} onTogglePlay={togglePlay}
               onMove={(id, x, y) => updateCaption(id, { x, y })} videoProps={videoProps}
             />
             {!url && (
@@ -821,15 +891,15 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex h-12 items-center gap-2 border-t border-line bg-ink-900 px-4">
+          <div className="flex h-11 sm:h-12 shrink-0 items-center gap-1.5 sm:gap-2 border-t border-line bg-ink-900 px-2 sm:px-4">
             <IconButton icon={playing ? 'pause' : 'play'} label={playing ? 'Pause (Space)' : 'Play (Space)'} onClick={togglePlay} disabled={!hasVideo || exporting} size="lg" tone="accent" />
             <IconButton icon="loop" label={clipMode ? 'Play the edit from the start' : 'Play selected range only'} onClick={playSelection} disabled={!hasVideo || exporting} />
-            <span className="ml-2 text-sm tabular-nums text-fg">{fmt(time)}<span className="text-dim"> / {fmt(duration)}</span></span>
-            <span className="ml-auto flex items-center gap-1.5">
-              <button className={btn} onClick={setIn} disabled={!hasVideo || exporting || (clipMode && !selClip)} title={clipMode ? 'Set the selected clip\'s start to the playhead (I)' : 'Set trim start to playhead (I)'}><Icon name="markIn" size={15} />In</button>
-              <button className={btn} onClick={setOut} disabled={!hasVideo || exporting || (clipMode && !selClip)} title={clipMode ? 'Set the selected clip\'s end to the playhead (O)' : 'Set trim end to playhead (O)'}><Icon name="markOut" size={15} />Out</button>
-              <IconButton icon="reset" label={clipMode ? 'Reset trim (clips are active — manage them in the Draft tab)' : 'Reset trim to full video'} onClick={() => setTrim({ start: 0, end: duration })} disabled={!hasVideo || exporting || clipMode} />
-              <span className="ml-2 min-w-[132px] text-right text-xs tabular-nums text-mute" title={clipMode ? `Length of all ${clips.length} clips together` : 'Length that will be exported'}>Export length <span className="text-fg">{fmt(selDur)}</span></span>
+            <span className="ml-1 sm:ml-2 text-xs sm:text-sm tabular-nums text-fg">{fmt(time)}<span className="text-dim"> / {fmt(duration)}</span></span>
+            <span className="ml-auto flex items-center gap-1 sm:gap-1.5">
+              <button className={`${btn} h-7 sm:h-8 px-2 sm:px-2.5 text-xs`} onClick={setIn} disabled={!hasVideo || exporting || (clipMode && !selClip)} title={clipMode ? 'Set clip start (I)' : 'Set trim start (I)'}><Icon name="markIn" size={14} /><span className="hidden sm:inline">In</span></button>
+              <button className={`${btn} h-7 sm:h-8 px-2 sm:px-2.5 text-xs`} onClick={setOut} disabled={!hasVideo || exporting || (clipMode && !selClip)} title={clipMode ? 'Set clip end (O)' : 'Set trim end (O)'}><Icon name="markOut" size={14} /><span className="hidden sm:inline">Out</span></button>
+              <IconButton icon="reset" label={clipMode ? 'Reset trim' : 'Reset trim to full video'} onClick={() => setTrim({ start: 0, end: duration })} disabled={!hasVideo || exporting || clipMode} />
+              <span className="ml-1 sm:ml-2 text-right text-xs tabular-nums text-mute" title={clipMode ? `Length of all ${clips.length} clips together` : 'Length that will be exported'}><span className="hidden md:inline">Export length </span><span className="text-fg">{fmt(selDur)}</span></span>
             </span>
           </div>
 
@@ -842,64 +912,45 @@ export default function App() {
           />
         </main>
 
-        <aside className="flex min-h-0 flex-col border-l border-line bg-ink-900">
+        {/* Desktop Right Sidebar */}
+        <aside className="hidden lg:flex min-h-0 flex-col border-l border-line bg-ink-900">
           <div className="border-b border-line px-4 py-3">
             <h2 className="font-display text-base font-semibold">{curTool.title}</h2>
             <p className="text-xs text-mute">{curTool.sub}</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-            {tool === 'media' && (
-              <MediaPanel file={file} dims={dims} duration={duration} selection={selDur} canvas={canvas} outSize={outSize}
-                recover={pendingRecover ? recoverInfo : null} onRestore={restore} onDiscard={discard}
-                onCanvas={(c) => setCanvas((cv) => ({ ...cv, ...c }))}
-                onOpen={() => fileInput.current?.click()} onSaveProject={saveProject} onLoadProject={() => projInput.current?.click()} />
-            )}
-            {tool === 'captions' && (
-              <CaptionsPanel
-                captions={captions} selId={selId} time={time} hasVideo={hasVideo} density={density} suggestedWords={suggestedWords}
-                onSelect={setSelId} onAdd={addCaption} onUpdate={updateCaption} onDelete={deleteCaption}
-                onClear={() => { setCaptions([]); setSelId(null) }} onDensity={changeDensity} onApplyEmojis={applyEmojis}
-                onImportText={importText} onImportSrt={(f) => void importSrt(f)}
-                onDownloadSrt={() => download(new Blob([toSrt(captions)], { type: 'text/plain' }), `${baseName}.srt`)}
-                onSeek={seek} onGoto={setTool}
-              />
-            )}
-            {tool === 'styles' && (
-              <StylesPanel
-                style={targetStyle} presetId={targetPreset} scope={effScope} hasSelected={!!selCap} ownStyle={effScope === 'selected' && !!selCap?.style}
-                hasCaptions={captions.length > 0} fontTick={fontTick}
-                onScope={setScope} onApply={applyTemplate} onPatch={patchStyle} onReset={resetStyle} onUseGlobal={useGlobalStyle} onSetAllY={setAllY}
-              />
-            )}
-            {tool === 'draft' && (
-              <DraftPanel clips={clips} ranges={ranges} selId={selClipId} hasPlan={!!plan} hasVideo={hasVideo} busy={exporting} planApplied={!!plan?.appliedAt}
-                onOpenDraft={() => setView('draft')} onSelect={(id) => { selectClip(id); const c = clips.find((k) => k.id === id); if (c) seekSource(c.start) }}
-                onMove={moveClip} onRemove={removeClip} onRange={updateClipRange} onClear={clearClips} onRegenCaptions={regenCaptions}
-                onSplit={splitClip} canSplit={canSplit} />
-            )}
-            {tool === 'ai' && <AiPanel hasVideo={hasVideo} ai={ai} selection={Math.max(0, trim.end - trim.start)} density={density} lastRun={lastRun} onDensity={changeDensity} onTranscribe={(m) => void runTranscribe(m)} />}
-            {tool === 'assistant' && (
-              <AssistantPanel
-                snapshot={{
-                  captionsCount: captions.length,
-                  templateName: templateById(presetId)?.name ?? 'Custom',
-                  canvasAspect: canvas.aspect,
-                  duration,
-                  clipsCount: clips.length,
-                  trim,
-                }}
-                onDensity={(n) => changeDensity(n)}
-                onApplyTemplate={(t) => applyTemplate(t)}
-                onSetAllY={(y) => setAllY(y)}
-                onSetCanvas={(aspect) => setCanvas((cv) => ({ ...cv, aspect }))}
-                onClearCaptions={() => setCaptions([])}
-                onTrim={(tr) => setTrim((cur) => ({ start: tr.start ?? cur.start, end: tr.end ?? cur.end }))}
-                onUndo={undo}
-                onRedo={redo}
-              />
-            )}
+            {toolPanels}
           </div>
         </aside>
+
+        {/* Mobile Bottom Navigation Toolbar */}
+        <nav aria-label="Mobile tools" className="flex lg:hidden shrink-0 items-center justify-around border-t border-line bg-ink-900 py-1 px-1 z-20 pb-[max(6px,env(safe-area-inset-bottom))]">
+          {TOOLS.map((t) => {
+            const isActive = tool === t.id && mobileDrawerOpen
+            return (
+              <button
+                key={t.id}
+                onClick={() => {
+                  if (tool === t.id) {
+                    setMobileDrawerOpen((prev) => !prev)
+                  } else {
+                    setTool(t.id)
+                    setMobileDrawerOpen(true)
+                  }
+                }}
+                className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-lg text-[10px] font-medium transition-colors ${
+                  isActive
+                    ? 'text-accent-300 bg-accent-500/15'
+                    : 'text-mute hover:text-fg'
+                }`}
+                title={t.title}
+              >
+                <Icon name={t.icon} size={18} className={isActive ? 'text-accent-300' : ''} />
+                <span>{t.label}</span>
+              </button>
+            )
+          })}
+        </nav>
       </div>
 
       {view === 'draft' && (
@@ -950,21 +1001,95 @@ export default function App() {
         </div>
       )}
 
-      {narrowWarn && (
-        <aside
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-3 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-amber-500/40 bg-ink-900/95 px-4 py-2 text-xs text-amber-200 shadow-2xl backdrop-blur"
-        >
-          <span>CutPilot is optimised for desktop (920 px or more). The editor may scroll horizontally on this display.</span>
-          <button
-            onClick={() => setNarrowWarn(false)}
-            className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-amber-300 hover:bg-white/10 focus:outline-none"
-            aria-label="Dismiss narrow viewport warning"
-          >
-            Dismiss
-          </button>
-        </aside>
+      {/* Mobile Tool Drawer Bottom Sheet (lg:hidden) */}
+      {mobileDrawerOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={curTool.title}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onClick={() => setMobileDrawerOpen(false)} />
+          <div className="relative z-10 flex max-h-[60dvh] min-h-[42dvh] flex-col rounded-t-2xl border-t border-line bg-ink-900 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <div className="grid h-7 w-7 place-items-center rounded-md bg-accent-500/15 text-accent-300">
+                  <Icon name={curTool.icon} size={15} />
+                </div>
+                <div>
+                  <h3 className="font-display text-sm font-semibold text-fg leading-none">{curTool.title}</h3>
+                  <p className="text-[11px] text-mute mt-0.5 leading-none">{curTool.sub}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-md text-mute hover:bg-ink-800 hover:text-fg transition-colors"
+                aria-label="Close panel"
+              >
+                <Icon name="x" size={15} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+              {toolPanels}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile More Options Dialog (lg:hidden) */}
+      {mobileMoreOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 lg:hidden" role="dialog" aria-modal="true" aria-label="Editor Options" onClick={() => setMobileMoreOpen(false)}>
+          <div className="w-full max-w-sm rounded-xl border border-line bg-ink-850 p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-base font-semibold">Project &amp; Settings</h3>
+              <button className="text-mute hover:text-white" onClick={() => setMobileMoreOpen(false)} aria-label="Close"><Icon name="x" size={16} /></button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <div>
+                <label className="block text-xs font-medium text-mute mb-1">Canvas Aspect Ratio</label>
+                <select
+                  aria-label="Canvas aspect ratio"
+                  value={canvas.aspect}
+                  onChange={(e) => setCanvas((c) => ({ ...c, aspect: e.target.value as Aspect }))}
+                  disabled={exporting}
+                  className="h-9 w-full rounded-md border border-line bg-ink-950 px-3 text-xs text-fg hover:border-white/20 focus:border-accent-500 focus:outline-none"
+                >
+                  <option value="source">Canvas: Original</option>
+                  <option value="9:16">Canvas: 9:16 vertical</option>
+                  <option value="1:1">Canvas: 1:1 square</option>
+                  <option value="16:9">Canvas: 16:9 landscape</option>
+                </select>
+              </div>
+              <div className="pt-2 border-t border-line space-y-2">
+                <button
+                  onClick={() => { setMobileMoreOpen(false); newProject() }}
+                  className={`${btn} w-full justify-start h-9 text-xs`}
+                >
+                  <Icon name="sparkles" size={14} /> Start fresh project
+                </button>
+                <button
+                  onClick={() => { setMobileMoreOpen(false); projInput.current?.click() }}
+                  className={`${btn} w-full justify-start h-9 text-xs`}
+                  disabled={exporting}
+                >
+                  <Icon name="folder" size={14} /> Load project file
+                </button>
+                <button
+                  onClick={() => { setMobileMoreOpen(false); saveProject() }}
+                  className={`${btn} w-full justify-start h-9 text-xs`}
+                  disabled={exporting}
+                >
+                  <Icon name="save" size={14} /> Save project file (.json)
+                </button>
+                <button
+                  onClick={() => { setMobileMoreOpen(false); setShowKeys(true) }}
+                  className={`${btn} w-full justify-start h-9 text-xs`}
+                >
+                  <Icon name="keyboard" size={14} /> Keyboard shortcuts
+                </button>
+              </div>
+              <div className="pt-3 border-t border-line text-[11px] text-mute flex items-center justify-between">
+                <span>Autosave</span>
+                <span className="flex items-center gap-1.5"><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{status}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

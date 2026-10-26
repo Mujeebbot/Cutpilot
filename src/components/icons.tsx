@@ -34,6 +34,7 @@ const PATHS = {
   right: s('M9 6l6 6-6 6'),
   film: s('M4 5h16v14H4zM10 9.5v5l4.5-2.5z'),
   chat: s('M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'),
+  dots: f('M12 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm0 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm0 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z'),
 } as const
 
 export type IconName = keyof typeof PATHS

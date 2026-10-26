@@ -93,7 +93,7 @@ export default function Landing() {
     : ''
 
   return (
-    <div className="relative min-h-dvh bg-[#0b0c0f] font-body text-[#f3f1ec] antialiased selection:bg-[#ffe14d]/30">
+    <div className="relative min-h-dvh bg-[#0b0c0f] font-body text-[#f3f1ec] antialiased selection:bg-[#ffe14d]/30 overflow-x-hidden">
       {/* ------------------------------------------------------------------ ATMOSPHERE LAYERS */}
       {/* Film-grain overlay (inline SVG feTurbulence, 5% opacity, mix-blend-mode: overlay) */}
       <svg
@@ -354,11 +354,11 @@ export default function Landing() {
                 style={{ transform: `translateY(${parallaxY}px)` }}
               >
                 {/* Floating Review Card 1 (Top-Left) */}
-                <div className="absolute top-12 -left-8 sm:-left-14 z-30 flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#121316]/95 px-3 py-2 text-xs backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] float-card">
+                <div className="absolute top-12 -left-3 sm:-left-14 z-30 flex items-center gap-2 rounded-lg border border-white/10 bg-[#121316]/95 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] float-card">
                   <div className="flex items-center gap-1.5 text-white/80">
-                    <span className="font-mono text-[11px] font-medium text-white">Clip 1</span>
+                    <span className="font-mono text-[10px] sm:text-[11px] font-medium text-white">Clip 1</span>
                     <span className="text-white/20">·</span>
-                    <span className="font-mono text-[11px] text-[#9da1ab]">0:11–0:31</span>
+                    <span className="font-mono text-[10px] sm:text-[11px] text-[#9da1ab]">0:11–0:31</span>
                   </div>
                   <span className="rounded bg-[#ffe14d] px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#0b0c0f]">
                     Score 96
@@ -366,10 +366,10 @@ export default function Landing() {
                 </div>
 
                 {/* Floating Review Card 2 (Bottom-Left) */}
-                <div className="absolute bottom-20 -left-6 sm:-left-10 z-30 flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#121316]/95 px-3 py-2 text-xs backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] float-card-delayed">
+                <div className="absolute bottom-20 -left-2 sm:-left-10 z-30 flex items-center gap-2 rounded-lg border border-white/10 bg-[#121316]/95 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] float-card-delayed">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#ffe14d]" />
-                  <span className="text-[11px] text-[#9da1ab]">Pause trimmed</span>
-                  <span className="font-mono text-[11px] font-medium text-[#ffe14d]">-4.8s</span>
+                  <span className="text-[10px] sm:text-[11px] text-[#9da1ab]">Pause trimmed</span>
+                  <span className="font-mono text-[10px] sm:text-[11px] font-medium text-[#ffe14d]">-4.8s</span>
                 </div>
 
                 {/* Phone Frame: bezel 6px, radius 36px, 1px inner highlight at top edge, no outer ring */}

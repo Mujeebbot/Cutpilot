@@ -203,16 +203,16 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
 
   const zb = 'grid h-5 place-items-center rounded text-[13px] leading-none text-mute transition-colors hover:bg-ink-700 hover:text-fg disabled:opacity-40'
   return (
-    <div className={`h-[176px] shrink-0 select-none border-t border-line bg-ink-900 px-4 pb-1 pt-2 ${disabled ? 'opacity-60' : ''}`}>
-      <div className="grid h-full grid-cols-[56px_minmax(0,1fr)] gap-x-3">
+    <div className={`h-[160px] sm:h-[176px] shrink-0 select-none border-t border-line bg-ink-900 px-2 sm:px-4 pb-1 pt-1.5 sm:pt-2 ${disabled ? 'opacity-60' : ''}`}>
+      <div className="grid h-full grid-cols-[40px_minmax(0,1fr)] sm:grid-cols-[56px_minmax(0,1fr)] gap-x-1.5 sm:gap-x-3">
         <div className="flex flex-col">
           <div className="flex h-5 items-center gap-0.5">
-            <button className={`${zb} w-4`} title="Zoom out (Ctrl + scroll)" aria-label="Zoom out" disabled={disabled || zoom <= 1} onClick={() => zoomBtn(0.8)}>−</button>
-            <button className={`${zb} w-4`} title="Zoom in (Ctrl + scroll)" aria-label="Zoom in" disabled={disabled || zoom >= MAX_ZOOM} onClick={() => zoomBtn(1.25)}>+</button>
-            <button className={`${zb} w-6 text-[10px]`} title="Fit whole video" aria-label="Fit timeline" disabled={disabled || zoom === 1} onClick={() => zoomTo(1, 0, 0)}>Fit</button>
+            <button className={`${zb} w-3.5 sm:w-4`} title="Zoom out (Ctrl + scroll)" aria-label="Zoom out" disabled={disabled || zoom <= 1} onClick={() => zoomBtn(0.8)}>−</button>
+            <button className={`${zb} w-3.5 sm:w-4`} title="Zoom in (Ctrl + scroll)" aria-label="Zoom in" disabled={disabled || zoom >= MAX_ZOOM} onClick={() => zoomBtn(1.25)}>+</button>
+            <button className={`${zb} w-5 sm:w-6 text-[9px] sm:text-[10px]`} title="Fit whole video" aria-label="Fit timeline" disabled={disabled || zoom === 1} onClick={() => zoomTo(1, 0, 0)}>Fit</button>
           </div>
-          <span className="mt-1.5 flex h-14 items-center text-xs text-mute">Video</span>
-          <span className="mt-1.5 flex h-8 items-center text-xs text-mute">Captions</span>
+          <span className="mt-1.5 flex h-14 items-center text-[11px] sm:text-xs text-mute">Video</span>
+          <span className="mt-1.5 flex h-8 items-center text-[11px] sm:text-xs text-mute">Captions</span>
         </div>
 
         <div ref={scroller} className="overflow-x-auto overflow-y-hidden">
