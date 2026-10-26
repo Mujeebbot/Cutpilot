@@ -36,7 +36,7 @@ const CLIPS: DraftRow[] = [
     state: 'To review',
     why: ['Asks direct question', 'Pacing acceleration', 'High verbal clarity'],
     line: 'What if you could *DOUBLE* your creator revenue this month?',
-    templateId: 'neon',
+    templateId: 'neon-glow',
     imageSrc: '/media/creator-reel-2.jpg',
   },
   {
@@ -48,7 +48,7 @@ const CLIPS: DraftRow[] = [
     state: 'Cut',
     why: ['Pauses > 1.2s detected', 'Filler phrase repetition'],
     line: 'Anyway, that is just some quick context before we start…',
-    templateId: 'minimal-editorial',
+    templateId: 'editorial',
     imageSrc: '/media/creator-reel-1.jpg',
   },
 ]

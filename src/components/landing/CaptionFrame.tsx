@@ -30,13 +30,19 @@ export function CaptionFrame({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hover, setHover] = useState(false)
 
+  // Map known aliases or fallback to heavy-pop so no card is ever empty
+  const resolvedTemplateId =
+    templateId === 'neon' ? 'neon-glow' :
+    templateId === 'minimal-editorial' ? 'editorial' :
+    templateId
+
   useEffect(() => {
-    const t = templateById(templateId)
+    const t = templateById(resolvedTemplateId) || templateById('heavy-pop')!
     const c = canvasRef.current
-    if (!t || !c) return
+    if (!c) return
     let dead = false
     const toks = text.split(/\s+/).filter(Boolean)
-    const wordDuration = 0.42
+    const wordDuration = 0.44
     const totalDuration = toks.length * wordDuration + 0.8
 
     const cap: Caption = {
@@ -53,7 +59,9 @@ export function CaptionFrame({
       })),
     }
 
-    let start = performance.now()
+    // Start mid-animation on load so active words are immediately highlighted
+    const midPointSec = Math.min(activeWord, Math.max(0, toks.length - 1)) * wordDuration + 0.18
+    let start = performance.now() - midPointSec * 1000
     let rafId: number
 
     const renderFrame = (now: number) => {
@@ -68,7 +76,7 @@ export function CaptionFrame({
         const elapsed = ((now - start) / 1000) % totalDuration
         timeSec = elapsed
       } else {
-        timeSec = Math.min(activeWord, toks.length - 1) * wordDuration + 0.2
+        timeSec = midPointSec
       }
 
       drawCaption(ctx, c.width, c.height, cap, t.style, timeSec)
@@ -80,7 +88,6 @@ export function CaptionFrame({
 
     void ensureFonts([t.style]).then(() => {
       if (!dead) {
-        start = performance.now()
         rafId = requestAnimationFrame(renderFrame)
       }
     })
@@ -89,11 +96,11 @@ export function CaptionFrame({
       dead = true
       cancelAnimationFrame(rafId)
     }
-  }, [templateId, text, activeWord, y, animate, hover])
+  }, [resolvedTemplateId, text, activeWord, y, animate, hover])
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl border border-white/10 bg-slate shadow-2xl transition-all duration-300 hover:border-accent-500/40 hover:shadow-[0_0_30px_-5px_rgba(139,124,246,0.3)] ${className}`}
+      className={`group relative overflow-hidden rounded-xl border border-white/10 bg-slate transition-all duration-300 hover:border-white/30 ${className}`}
       style={{ aspectRatio: `${width} / ${height}` }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
