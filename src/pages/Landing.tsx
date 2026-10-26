@@ -253,10 +253,21 @@ export default function Landing() {
               'radial-gradient(ellipse 520px 520px at 68% 45%, rgba(245, 184, 0, 0.14) 0%, rgba(245, 184, 0, 0.04) 55%, transparent 70%), radial-gradient(circle 500px at 10% 85%, rgba(100, 160, 220, 0.05), transparent 70%)',
           }}
         >
-          {/* Top subtle vignette so nav reads clearly */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#0b0c0f] to-transparent" />
+          {/* Ambient Hero Film Grain & Glow Texture */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="/media/hero-glow-texture.png"
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover object-right-top opacity-35 mix-blend-screen"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f]/60 via-transparent to-[#0b0c0f]" />
+          </div>
 
-          <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+          {/* Top subtle vignette so nav reads clearly */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-[#0b0c0f] to-transparent" />
+
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
             {/* 2 Columns on Desktop: Left 55% Copy, Right 45% 9:16 Phone Frame */}
             <div className="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-center">
               <div>
@@ -400,13 +411,25 @@ export default function Landing() {
           id="how"
           tabIndex={-1}
           aria-labelledby="how-h"
-          className="border-t border-white/[0.07] bg-[#101216] py-24 focus:outline-none sm:py-32"
+          className="relative overflow-hidden border-t border-white/[0.07] bg-[#101216] py-24 focus:outline-none sm:py-32"
           style={{
             background:
               'radial-gradient(ellipse 600px 500px at 15% 45%, rgba(255, 255, 255, 0.05), transparent 70%)',
           }}
         >
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {/* Filmstrip Motif Atmosphere */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="/media/filmstrip-motif.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="h-full w-full object-cover object-center opacity-15 mix-blend-screen"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#101216] via-transparent to-[#101216]" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
             <div className="max-w-2xl">
               <h2 id="how-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
                 Three steps from raw footage to finished export
@@ -632,13 +655,25 @@ export default function Landing() {
 
         {/* ------------------------------------------------------------------ STUDIO BANNER (Perspective tilt on hover) */}
         <section
-          className="border-y border-white/[0.07] bg-[#101216] py-24 sm:py-32"
+          className="relative overflow-hidden border-y border-white/[0.07] bg-[#101216] py-24 sm:py-32"
           style={{
             background:
               'radial-gradient(ellipse 650px 450px at 50% 25%, rgba(255, 255, 255, 0.06), transparent 70%)',
           }}
         >
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {/* Cinematic Streaks Texture */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="/media/cinematic-streaks.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="h-full w-full object-cover object-center opacity-20 mix-blend-screen"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#101216] via-transparent to-[#101216]" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid gap-10 lg:grid-cols-[1fr_1.8fr] lg:items-center">
               <div>
                 <h2 className="font-serif text-3xl font-normal text-white sm:text-4xl">
@@ -831,8 +866,20 @@ export default function Landing() {
         </section>
 
         {/* ------------------------------------------------------------------ FINAL CTA */}
-        <section aria-labelledby="cta-h" className="py-24 text-center sm:py-32">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        <section aria-labelledby="cta-h" className="relative overflow-hidden py-24 text-center sm:py-32">
+          {/* Volumetric Light Shafts Texture */}
+          <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="/media/light-shafts.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="h-full w-full object-cover object-center opacity-25 mix-blend-screen"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f] via-transparent to-[#0b0c0f]" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6">
             <h2 id="cta-h" className="font-serif text-3xl font-normal text-white sm:text-5xl">
               Bring your footage. Review the proposed cut.
             </h2>
