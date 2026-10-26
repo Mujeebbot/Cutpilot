@@ -310,17 +310,35 @@ function TemplateThumb({ t, tick, hover }: { t: Template; tick: number; hover: b
 
 function TemplateCard({ t, selected, tick, onApply }: { t: Template; selected: boolean; tick: number; onApply: () => void }) {
   const [hover, setHover] = useState(false)
+  const [replaying, setReplaying] = useState(false)
+  const isHovered = hover || replaying
+
+  const triggerReplay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setReplaying(true)
+    setTimeout(() => setReplaying(false), 2400)
+  }
+
   return (
-    <button onClick={onApply} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onFocus={() => setHover(true)} onBlur={() => setHover(false)}
-      aria-pressed={selected} title={`${t.name} — ${t.blurb}`}
-      className={`group relative overflow-hidden rounded-lg border text-left transition-colors ${selected ? 'border-accent-500 bg-accent-500/10' : 'border-line bg-ink-850 hover:border-white/20'}`}>
-      <div className="bg-[radial-gradient(ellipse_at_50%_40%,#2a2d38_0%,#14151a_80%)]"><TemplateThumb t={t} tick={tick} hover={hover} /></div>
-      <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
-        <span className="min-w-0 truncate text-xs text-fg">{t.name}</span>
-        <span className="shrink-0 text-[10px] text-dim">{t.words} word{t.words > 1 ? 's' : ''}</span>
-      </div>
-      {selected && <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent-500 text-white"><Icon name="check" size={12} /></span>}
-    </button>
+    <div className={`group relative overflow-hidden rounded-lg border text-left transition-colors ${selected ? 'border-accent-500 bg-accent-500/10' : 'border-line bg-ink-850 hover:border-white/20'}`}>
+      <button type="button" onClick={onApply} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onFocus={() => setHover(true)} onBlur={() => setHover(false)}
+        aria-pressed={selected} title={`${t.name} — ${t.blurb}`} className="block w-full text-left">
+        <div className="bg-[radial-gradient(ellipse_at_50%_40%,#2a2d38_0%,#14151a_80%)]"><TemplateThumb t={t} tick={tick} hover={isHovered} /></div>
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+          <span className="min-w-0 truncate text-xs text-fg">{t.name}</span>
+          <span className="shrink-0 text-[10px] text-dim">{t.words} word{t.words > 1 ? 's' : ''}</span>
+        </div>
+      </button>
+      {selected && (
+        <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+          <button type="button" onClick={triggerReplay} title="Replay animation" aria-label="Replay animation"
+            className="grid h-5 w-5 place-items-center rounded-full bg-ink-900/90 text-white/80 shadow transition-colors hover:bg-ink-800 hover:text-white">
+            <Icon name="play" size={10} />
+          </button>
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-accent-500 text-white shadow"><Icon name="check" size={12} /></span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -376,7 +394,7 @@ export function StylesPanel(p: StylesProps) {
               <Icon name="search" size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
               <input className={`${input} pl-8`} placeholder="Search templates, fonts, moods…" aria-label="Search templates" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent_100%)]">
               {(['All', ...CATEGORIES] as const).map((c) => (
                 <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c}
                   className={`h-7 shrink-0 rounded-full border px-3 text-xs transition-colors ${cat === c ? 'border-accent-500 bg-accent-500/15 text-white' : 'border-line text-mute hover:border-white/20 hover:text-fg'}`}>{c}</button>

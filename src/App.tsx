@@ -108,6 +108,14 @@ export default function App() {
   const [, bumpHist] = useState(0)
   const [recover, setRecover] = useState<Saved | null>(() => readAutosave())
   const [asave, setAsave] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; at?: number; msg?: string }>({ state: 'idle' })
+  const [narrowWarn, setNarrowWarn] = useState(false)
+
+  useEffect(() => {
+    const checkWidth = () => { if (window.innerWidth < 920) setNarrowWarn(true) }
+    checkWidth()
+    window.addEventListener('resize', checkWidth)
+    return () => window.removeEventListener('resize', checkWidth)
+  }, [])
 
   useEffect(() => { document.documentElement.classList.add('app-lock'); return () => document.documentElement.classList.remove('app-lock') }, [])
   const err = (text: string) => setNote({ kind: 'error', text })
@@ -657,7 +665,7 @@ export default function App() {
         </span>
         <div className="ml-auto flex items-center gap-1">
           <select aria-label="Canvas aspect ratio" title="Canvas — used by preview and export" value={canvas.aspect} onChange={(e) => setCanvas((c) => ({ ...c, aspect: e.target.value as Aspect }))} disabled={exporting}
-            className="mr-1 h-8 rounded-md border border-line bg-ink-800 px-2 text-xs text-fg hover:bg-ink-700 focus:outline-none">
+            className="mr-1 h-8 rounded-md border border-line bg-ink-950 px-2.5 text-xs text-fg hover:border-white/20 focus:border-accent-500 focus:outline-none transition-colors cursor-pointer">
             <option value="source">Canvas: Original</option><option value="9:16">Canvas: 9:16 vertical</option><option value="1:1">Canvas: 1:1 square</option><option value="16:9">Canvas: 16:9 landscape</option>
           </select>
           <IconButton icon="undo" label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo || exporting} />
@@ -873,6 +881,23 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {narrowWarn && (
+        <aside
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-3 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg border border-amber-500/40 bg-ink-900/95 px-4 py-2 text-xs text-amber-200 shadow-2xl backdrop-blur"
+        >
+          <span>CutPilot is optimised for desktop (920 px or more). The editor may scroll horizontally on this display.</span>
+          <button
+            onClick={() => setNarrowWarn(false)}
+            className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-amber-300 hover:bg-white/10 focus:outline-none"
+            aria-label="Dismiss narrow viewport warning"
+          >
+            Dismiss
+          </button>
+        </aside>
       )}
     </div>
   )

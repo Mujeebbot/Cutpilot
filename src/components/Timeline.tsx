@@ -241,13 +241,21 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
                 {clipMode && (
                   <>
                     {gaps.map((g, i) => <div key={i} className="pointer-events-none absolute inset-y-0 bg-black/70" style={{ left: `${pct(g.start)}%`, width: `${pct(g.end - g.start)}%` }} />)}
-                    {clips.map((c, i) => (
-                      <div key={c.id} title={`Clip ${i + 1}: ${c.label ?? ''}`} onPointerDown={() => onSelectClip(c.id)}
-                        className={`absolute inset-y-0 cursor-pointer border-y-2 ${c.id === selClipId ? 'border-accent-300 bg-accent-500/25' : 'border-accent-400/60 bg-accent-500/10'}`}
-                        style={{ left: `${pct(c.start)}%`, width: `${pct(c.end - c.start)}%` }}>
-                        <span className="pointer-events-none absolute left-1 top-0.5 grid h-4 min-w-4 place-items-center rounded bg-ink-950/80 px-1 text-[10px] tabular-nums text-white">{i + 1}</span>
-                      </div>
-                    ))}
+                    {clips.map((c, i) => {
+                      const clipPx = ((c.end - c.start) / (duration || 1)) * fullW
+                      return (
+                        <div key={c.id} title={`Clip ${i + 1}: ${c.label ?? ''}`} onPointerDown={() => onSelectClip(c.id)}
+                          className={`absolute inset-y-0 cursor-pointer overflow-hidden border-y-2 ${c.id === selClipId ? 'border-accent-300 bg-accent-500/25' : 'border-accent-400/60 bg-accent-500/10'}`}
+                          style={{ left: `${pct(c.start)}%`, width: `${pct(c.end - c.start)}%` }}>
+                          <span className="pointer-events-none absolute left-1 top-0.5 grid h-4 min-w-4 place-items-center rounded bg-ink-950/80 px-1 text-[10px] tabular-nums text-white">{i + 1}</span>
+                          {clipPx > 80 && c.label && (
+                            <span className="pointer-events-none absolute bottom-1 left-1.5 right-1.5 truncate text-[9px] leading-tight text-white/80">
+                              {c.label}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </>
                 )}
                 {!thumbs.length && <span className="pointer-events-none absolute left-3 top-1/2 max-w-[60%] -translate-y-1/2 truncate text-[11px] text-mute">{label}</span>}
@@ -273,7 +281,7 @@ export function Timeline({ duration, time, trim, captions, selId, disabled, labe
                   <span className="h-5 w-px bg-ink-950/60" />
                 </div>
               ))}
-              {snapAt !== null && <div className="pointer-events-none absolute -top-6 bottom-0 z-10 w-px bg-accent-300" style={{ left: `${pct(snapAt)}%` }} />}
+              {snapAt !== null && <div className="pointer-events-none absolute -top-6 bottom-0 z-10 w-[2px] -translate-x-[1px] bg-accent-300 shadow-[0_0_6px_rgba(139,124,246,0.6)]" style={{ left: `${pct(snapAt)}%` }} />}
               <div className="pointer-events-none absolute -top-6 bottom-0 z-20 w-px bg-white" style={{ left: `${pct(time)}%` }}>
                 <span className="absolute -left-[5px] -top-0.5 h-2.5 w-2.5 rounded-sm bg-white" />
               </div>
