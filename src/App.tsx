@@ -862,6 +862,11 @@ export default function App() {
           <div className="w-full max-w-md rounded-xl border border-line bg-ink-850 p-6 shadow-2xl">
             <h2 className="font-display text-lg font-semibold">Rendering your cut</h2>
             <p className="mt-1 text-sm leading-relaxed text-mute">{outSize.w}×{outSize.h}. The clip plays in real time while it's recorded with captions burned in. Keep this tab visible until it finishes.</p>
+            {ranges.length > 1 && (
+              <p className="mt-2 text-xs leading-relaxed text-dim">
+                A brief audio fade occurs at each cut between clips — this is inherent to browser-based real-time recording. For seamless cuts, keep clips long or minimise the number of cuts.
+              </p>
+            )}
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-ink-700"><div className="h-full rounded-full bg-accent-500 transition-all" style={{ width: `${Math.round((exportPct ?? 0) * 100)}%` }} /></div>
             <div className="mt-3 flex items-center justify-between">
               <span className="text-sm tabular-nums text-fg">{Math.round((exportPct ?? 0) * 100)}%</span>

@@ -6,7 +6,12 @@ import { ensureFonts } from './fonts'
 import type { Range } from './sequence'
 import { totalLength } from './sequence'
 
-interface Graph { ctx: AudioContext; src: MediaElementAudioSourceNode; dest: MediaStreamAudioDestinationNode }
+interface Graph {
+  ctx: AudioContext
+  src: MediaElementAudioSourceNode
+  gain: GainNode
+  dest: MediaStreamAudioDestinationNode
+}
 const graphs = new WeakMap<HTMLVideoElement, Graph>()
 
 /** createMediaElementSource may only be called once per element, so cache it. */
@@ -15,10 +20,12 @@ function getGraph(v: HTMLVideoElement): Graph {
   if (!g) {
     const ctx = new AudioContext()
     const src = ctx.createMediaElementSource(v)
+    const gain = ctx.createGain()
     const dest = ctx.createMediaStreamDestination()
-    src.connect(dest)
+    src.connect(gain)
+    gain.connect(dest)
     src.connect(ctx.destination)
-    g = { ctx, src, dest }
+    g = { ctx, src, gain, dest }
     graphs.set(v, g)
   }
   return g
@@ -51,11 +58,11 @@ const MIMES = [
   'video/webm',
 ]
 
+const FADE_SEC = 0.08 // 80ms audio ramp at cuts between clips
+
 /**
  * Real-time render: plays each range in order, draws each frame + captions onto a
- * canvas, and records canvas + audio with MediaRecorder in ONE continuous recording. Takes as long as the edit.
- * Between ranges the video seeks, so the picture holds the new range's first frame (and audio is silent) for the
- * few tens/hundreds of milliseconds the seek takes; that hold is part of the recording.
+ * canvas, and records canvas + audio with MediaRecorder in ONE continuous recording.
  */
 export async function exportVideo(o: ExportOptions): Promise<{ blob: Blob; ext: string }> {
   const { video, ranges, captions, style, canvas: cv, onProgress, signal } = o
@@ -74,6 +81,8 @@ export async function exportVideo(o: ExportOptions): Promise<{ blob: Blob; ext: 
 
   const g = getGraph(video)
   await g.ctx.resume()
+  g.gain.gain.setValueAtTime(1, g.ctx.currentTime)
+
   const stream = canvas.captureStream(30)
   g.dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t))
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 })
@@ -95,9 +104,44 @@ export async function exportVideo(o: ExportOptions): Promise<{ blob: Blob; ext: 
     draw()
     rec.start(250)
     let done = 0
+    const multi = ranges.length > 1
+
     for (let i = 0; i < ranges.length; i++) {
       const r = ranges[i]
-      if (i > 0) { video.pause(); await seek(video, r.start); draw() }
+      if (i > 0) {
+        // Fade out previous clip audio before pausing
+        if (multi) {
+          const now = g.ctx.currentTime
+          g.gain.gain.cancelScheduledValues(now)
+          g.gain.gain.setValueAtTime(g.gain.gain.value, now)
+          g.gain.gain.linearRampToValueAtTime(0, now + FADE_SEC)
+          await new Promise((res) => setTimeout(res, 85))
+        }
+        video.pause()
+
+        // Continuous rAF draw loop during seek so fresh frames are displayed smoothly
+        let seeking = true
+        const seekDraw = () => {
+          if (!seeking) return
+          draw()
+          requestAnimationFrame(seekDraw)
+        }
+        requestAnimationFrame(seekDraw)
+        await seek(video, r.start)
+        seeking = false
+        draw()
+      }
+
+      // Fade in new clip audio
+      if (multi) {
+        const now = g.ctx.currentTime
+        g.gain.gain.cancelScheduledValues(now)
+        g.gain.gain.setValueAtTime(0, now)
+        g.gain.gain.linearRampToValueAtTime(1, now + FADE_SEC)
+      } else {
+        g.gain.gain.setValueAtTime(1, g.ctx.currentTime)
+      }
+
       await video.play()
       await new Promise<void>((resolve) => {
         const tick = () => {
@@ -121,6 +165,8 @@ export async function exportVideo(o: ExportOptions): Promise<{ blob: Blob; ext: 
     video.pause()
     stream.getVideoTracks().forEach((t) => t.stop())
     g.dest.stream.getAudioTracks().forEach((t) => stream.removeTrack(t))
+    g.gain.gain.cancelScheduledValues(g.ctx.currentTime)
+    g.gain.gain.setValueAtTime(1, g.ctx.currentTime)
     g.src.connect(g.ctx.destination)
     await seek(video, prevTime)
   }
