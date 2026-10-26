@@ -122,6 +122,15 @@ describe('captions for the edit', () => {
     }
     expect(caps.some((c) => /pricing/i.test(c.text))).toBe(true)
   })
+  it('supports 5-word density per caption', () => {
+    const ranges = [{ start: 11, end: 30 }]
+    const caps = captionsForRanges(words, ranges, 5)
+    expect(caps.length).toBeGreaterThan(0)
+    for (const c of caps) {
+      const wCount = c.text.split(/\s+/).filter(Boolean).length
+      expect(wCount).toBeLessThanOrEqual(5)
+    }
+  })
   it('regeneration replaces unedited draft captions but keeps the creator’s own', () => {
     const first = captionsForRanges(words, [{ start: 11, end: 20 }], 2)
     const mine: Caption = { id: 'mine', start: 11.5, end: 14, text: 'my own words', x: 0.5, y: 0.5 }
