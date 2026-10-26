@@ -12,6 +12,11 @@ export function normalizeStyle(raw: unknown): CaptionStyle {
   if (typeof r.weight !== 'number') st.weight = r.bold ? 800 : 500
   st.weight = nearestWeight(st.font, st.weight)
   delete st.bold
+  if (typeof r.kwSize === 'number' && Number.isFinite(r.kwSize)) {
+    st.kwSize = Math.max(24, Math.min(200, Math.round(r.kwSize)))
+  } else {
+    st.kwSize = null
+  }
   return st
 }
 

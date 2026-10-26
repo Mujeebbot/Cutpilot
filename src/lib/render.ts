@@ -46,11 +46,12 @@ export function drawCaption(ctx: CanvasRenderingContext2D, W: number, H: number,
     : st.autoEmphasis ? autoKeywords(raw.map((r) => r.w)) : new Set<number>()
   const words = raw.map((r) => (st.uppercase ? r.w.toUpperCase() : r.w))
   const n = words.length
-  const kwStyled = !!st.kwFont || st.kwItalic || st.kwScale !== 1 || st.kwWeight !== 0
+  const kwPx = st.kwSize != null ? st.kwSize * s : px * st.kwScale
+  const kwStyled = !!st.kwFont || st.kwItalic || st.kwScale !== 1 || st.kwWeight !== 0 || st.kwSize != null
   const useKw = (i: number) => kwStyled && kwIdx.has(i)
 
   const baseFont = `${st.weight} ${px}px ${stack(st.font)}`
-  const kwFace = `${st.kwItalic ? 'italic ' : ''}${st.kwWeight || st.weight} ${px * st.kwScale}px ${stack(st.kwFont || st.font)}`
+  const kwFace = `${st.kwItalic ? 'italic ' : ''}${st.kwWeight || st.weight} ${kwPx}px ${stack(st.kwFont || st.font)}`
 
   ctx.save()
   ctx.textBaseline = 'alphabetic'
@@ -72,7 +73,8 @@ export function drawCaption(ctx: CanvasRenderingContext2D, W: number, H: number,
     const add = (lines[li].length ? space : 0) + widths[i]
     if (lineW[li] + add > maxW && lines[li].length) { lines.push([i]); lineW.push(widths[i]) } else { lines[li].push(i); lineW[li] += add }
   })
-  const lineH = lines.map((idxs) => px * 1.22 * Math.max(1, ...idxs.map((i) => (useKw(i) ? st.kwScale : 1))))
+  const kwRatio = px > 0 ? kwPx / px : 1
+  const lineH = lines.map((idxs) => px * 1.22 * Math.max(1, ...idxs.map((i) => (useKw(i) ? kwRatio : 1))))
 
   // word start times: measured when the caption has matching word timing, otherwise spread by letter count
   const wS: number[] = []

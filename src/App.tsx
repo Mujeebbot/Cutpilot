@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Aspect, CanvasSettings, Caption, CaptionStyle, Clip, OutputFormat, Tool, Trim } from './types'
+import type { Aspect, CanvasSettings, Caption, CaptionStyle, Clip, OutputFormat, Tool, Trim, Density } from './types'
 import { DEFAULT_CANVAS } from './types'
 import { Stage } from './components/Stage'
 import { Timeline } from './components/Timeline'
@@ -32,7 +32,6 @@ import { Link, navigate } from './lib/router'
 
 type Note = { kind: 'error' | 'info'; text: string } | null
 type Snap = { captions: Caption[]; style: CaptionStyle; trim: Trim; canvas: CanvasSettings; presetId: string | null; clips: Clip[] }
-type Density = 1 | 2 | 3
 type Scope = 'all' | 'selected'
 
 interface Saved {
@@ -565,7 +564,7 @@ export default function App() {
     setStyle(normalizeStyle(d.style))
     setPresetId(d.presetId ?? null)
     if (d.canvas) setCanvas({ ...DEFAULT_CANVAS, ...d.canvas })
-    if (d.density === 1 || d.density === 2 || d.density === 3) setDensity(d.density)
+    if (typeof d.density === 'number' && d.density >= 1 && d.density <= 10) setDensity(Math.round(d.density))
     if (typeof d.projectName === 'string') setProjectName(d.projectName)
     setClips(sanitizeClips(d.clips, duration, uid))
     if (d.brief && typeof d.brief.text === 'string') setBrief({ text: d.brief.text, format: (['9:16', '1:1', '16:9'] as const).includes(d.brief.format as OutputFormat) ? d.brief.format : '9:16' })

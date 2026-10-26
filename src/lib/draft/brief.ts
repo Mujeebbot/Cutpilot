@@ -14,8 +14,8 @@ export interface BriefGoals {
   removePauses: boolean
   /** Captions wanted. Default on; only 'off' when the brief explicitly rejects them. */
   captions: 'on' | 'off'
-  /** 1–3 words per caption when the brief named one. */
-  wordsPerCaption: 1 | 2 | 3 | null
+  /** Words per caption (1–10) when the brief named one. */
+  wordsPerCaption: number | null
   /** The brief asked for highlighted/emphasised keywords. */
   emphasizeKeywords: boolean
   /** Topic words the brief says to focus on (lower-case, stop-words removed). Used only for keyword matching. */
@@ -96,8 +96,17 @@ export function parseBrief(raw: string): BriefGoals {
   const noCaps = lower.match(/\b(?:no|without|skip|don'?t (?:want|need|add|use)|turn off)\s+(?:any\s+)?(?:captions?|subtitles?)\b/)
   if (noCaps) { g.captions = 'off'; note('captions', 'No captions', noCaps[0]) }
   else if (/\b(captions?|subtitles?)\b/.test(lower)) note('captions', 'Captions wanted', lower.match(/captions?|subtitles?/)![0])
-  const wpc = lower.match(/\b(one|1|two|2|three|3)[\s-]*words?(?: at a time| per caption| captions?)?\b/)
-  if (wpc && g.captions === 'on') { g.wordsPerCaption = ({ one: 1, 1: 1, two: 2, 2: 2, three: 3, 3: 3 } as const)[wpc[1] as 'one'] ?? null; if (g.wordsPerCaption) note('density', `${g.wordsPerCaption} word${g.wordsPerCaption > 1 ? 's' : ''} per caption`, wpc[0]) }
+  const wpc = lower.match(/\b(one|1|two|2|three|3|four|4|five|5|six|6|seven|7|eight|8|nine|9|ten|10)[\s-]*words?(?: at a time| per caption| captions?)?\b/)
+  if (wpc && g.captions === 'on') {
+    const map: Record<string, number> = {
+      one: 1, '1': 1, two: 2, '2': 2, three: 3, '3': 3,
+      four: 4, '4': 4, five: 5, '5': 5, six: 6, '6': 6,
+      seven: 7, '7': 7, eight: 8, '8': 8, nine: 9, '9': 9,
+      ten: 10, '10': 10,
+    }
+    g.wordsPerCaption = map[wpc[1]] ?? null
+    if (g.wordsPerCaption) note('density', `${g.wordsPerCaption} word${g.wordsPerCaption > 1 ? 's' : ''} per caption`, wpc[0])
+  }
   const emph = lower.match(/\b(?:highlight|emphasi[sz]e|pop)\b[^.;]{0,30}\b(?:keywords?|words?|numbers?)\b|\bkeyword highlight(?:s|ing)?\b|\bword[- ]by[- ]word\b|\bkaraoke\b/)
   if (emph && g.captions === 'on') { g.emphasizeKeywords = true; note('emphasis', 'Highlight keywords in captions', emph[0]) }
 

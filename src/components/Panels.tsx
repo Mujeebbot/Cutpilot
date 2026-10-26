@@ -104,10 +104,10 @@ export function MediaPanel(p: {
 /* ---------------- Captions ---------------- */
 interface CapProps {
   captions: Caption[]; selId: string | null; time: number; hasVideo: boolean
-  density: 1 | 2 | 3; suggestedWords: number | null
+  density: number; suggestedWords: number | null
   onSelect: (id: string | null) => void; onAdd: () => void
   onUpdate: (id: string, p: Partial<Caption>) => void; onDelete: (id: string) => void; onClear: () => void
-  onDensity: (n: 1 | 2 | 3) => void
+  onDensity: (n: number) => void
   onApplyEmojis: (items: { id: string; emoji: string }[]) => void
   onImportText: (t: string) => void; onImportSrt: (f: File) => void; onDownloadSrt: () => void
   onSeek: (t: number) => void; onGoto: (t: Tool) => void
@@ -161,12 +161,48 @@ export function CaptionsPanel(p: CapProps) {
       )}
 
       <Section title="Words per caption">
-        <Segmented label="Words per caption" value={p.density} options={[{ value: 1, label: '1 word' }, { value: 2, label: '2 words' }, { value: 3, label: '3 words' }]} onChange={p.onDensity} />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <Segmented
+                label="Words per caption"
+                value={[1, 2, 3].includes(p.density) ? p.density : 0}
+                options={[
+                  { value: 1, label: '1 word' },
+                  { value: 2, label: '2 words' },
+                  { value: 3, label: '3 words' },
+                  { value: 0, label: 'Custom' },
+                ]}
+                onChange={(v) => {
+                  if (v === 0) p.onDensity(p.density > 3 ? p.density : 4)
+                  else p.onDensity(v)
+                }}
+              />
+            </div>
+            {(![1, 2, 3].includes(p.density) || p.density > 3) && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={p.density}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10)
+                    if (!isNaN(val)) p.onDensity(Math.max(1, Math.min(10, val)))
+                  }}
+                  className="w-14 rounded-md border border-line bg-ink-800 px-2 py-1 text-center text-xs tabular-nums text-fg focus:border-accent-400 focus:outline-none"
+                  aria-label="Custom words per caption (1 to 10)"
+                />
+                <span className="text-[11px] text-mute">words</span>
+              </div>
+            )}
+          </div>
+        </div>
         <p className="text-[11px] leading-relaxed text-dim">
           Applies to new transcriptions and regroups existing captions (you'll be asked first if that would change hand-edited ones; Ctrl+Z undoes it).
         </p>
         {p.suggestedWords && p.suggestedWords !== p.density && (
-          <button className={`${btn} w-full`} onClick={() => p.onDensity(p.suggestedWords as 1 | 2 | 3)}>
+          <button className={`${btn} w-full`} onClick={() => p.onDensity(p.suggestedWords!)}>
             This template suggests {p.suggestedWords} word{p.suggestedWords > 1 ? 's' : ''} — use it
           </button>
         )}
@@ -405,7 +441,36 @@ export function StylesPanel(p: StylesProps) {
               </select>
             </Field>
             <Toggle label="Keyword italic" checked={st.kwItalic} onChange={(kwItalic) => p.onPatch({ kwItalic })} />
-            <Slider label="Keyword size" value={st.kwScale} min={0.7} max={2.2} step={0.05} onChange={(kwScale) => p.onPatch({ kwScale })} suffix="×" />
+            <Segmented
+              label="Keyword sizing mode"
+              value={st.kwSize != null ? 'fixed' : 'relative'}
+              options={[
+                { value: 'relative', label: 'Relative (×)' },
+                { value: 'fixed', label: 'Fixed (px)' },
+              ]}
+              onChange={(m) => p.onPatch({ kwSize: m === 'fixed' ? (st.kwSize ?? st.size) : null })}
+            />
+            {st.kwSize != null ? (
+              <Slider
+                label="Keyword font size"
+                value={st.kwSize}
+                min={24}
+                max={200}
+                step={2}
+                onChange={(kwSize) => p.onPatch({ kwSize })}
+                suffix=" px"
+              />
+            ) : (
+              <Slider
+                label="Keyword size"
+                value={st.kwScale}
+                min={0.7}
+                max={2.2}
+                step={0.05}
+                onChange={(kwScale) => p.onPatch({ kwScale })}
+                suffix="×"
+              />
+            )}
             <Toggle label="Keyword on a filled box" checked={st.kwBox} onChange={(kwBox) => p.onPatch({ kwBox })} />
           </Section>
 
@@ -456,8 +521,8 @@ export function StylesPanel(p: StylesProps) {
 /* ---------------- AI Tools ---------------- */
 export function AiPanel(p: {
   hasVideo: boolean; ai: { pct: number | null; label: string } | null; selection: number
-  density: 1 | 2 | 3; lastRun: { precise: boolean; words: number; captions: number } | null
-  onDensity: (n: 1 | 2 | 3) => void; onTranscribe: (model: string) => void
+  density: number; lastRun: { precise: boolean; words: number; captions: number } | null
+  onDensity: (n: number) => void; onTranscribe: (model: string) => void
 }) {
   const [model, setModel] = useState(MODELS[0].id)
   return (
@@ -472,7 +537,43 @@ export function AiPanel(p: {
           </select>
         </Field>
         <Field label="Words per caption">
-          <Segmented label="Words per caption" value={p.density} options={[{ value: 1, label: '1' }, { value: 2, label: '2' }, { value: 3, label: '3' }]} onChange={p.onDensity} />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Segmented
+                  label="Words per caption"
+                  value={[1, 2, 3].includes(p.density) ? p.density : 0}
+                  options={[
+                    { value: 1, label: '1' },
+                    { value: 2, label: '2' },
+                    { value: 3, label: '3' },
+                    { value: 0, label: 'Custom' },
+                  ]}
+                  onChange={(v) => {
+                    if (v === 0) p.onDensity(p.density > 3 ? p.density : 4)
+                    else p.onDensity(v)
+                  }}
+                />
+              </div>
+              {(![1, 2, 3].includes(p.density) || p.density > 3) && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={p.density}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10)
+                      if (!isNaN(val)) p.onDensity(Math.max(1, Math.min(10, val)))
+                    }}
+                    className="w-14 rounded-md border border-line bg-ink-800 px-2 py-1 text-center text-xs tabular-nums text-fg focus:border-accent-400 focus:outline-none"
+                    aria-label="Custom words per caption (1 to 10)"
+                  />
+                  <span className="text-[11px] text-mute">words</span>
+                </div>
+              )}
+            </div>
+          </div>
         </Field>
         <p className="text-xs text-mute">Range: <span className="tabular-nums text-fg">{fmt(p.selection)}</span> (your current trim)</p>
         <button className={`${btnPrimary} w-full`} disabled={!p.hasVideo || !!p.ai} onClick={() => p.onTranscribe(model)}>

@@ -40,5 +40,11 @@ describe('parseBrief', () => {
     expect(g).toMatchObject({ targetSeconds: null, strongestOpening: false, removePauses: false, captions: 'on', focusTerms: [], notes: [] })
     expect(parseBrief('something nice please').notes).toEqual([])
   })
+  it('parses caption density across the 1-10 range', () => {
+    expect(parseBrief('five word captions please').wordsPerCaption).toBe(5)
+    expect(parseBrief('use 6 words per caption').wordsPerCaption).toBe(6)
+    expect(parseBrief('one word at a time').wordsPerCaption).toBe(1)
+    expect(parseBrief('ten words per caption').wordsPerCaption).toBe(10)
+  })
   it('contentTerms drops stop-words and duplicates', () => expect(contentTerms('the pricing and the Pricing of our product')).toEqual(['pricing', 'product']))
 })

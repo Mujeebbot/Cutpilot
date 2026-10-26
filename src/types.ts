@@ -42,6 +42,7 @@ export interface CaptionStyle {
   kwWeight: number // 0 = same weight
   kwItalic: boolean
   kwScale: number
+  kwSize?: number | null // null = use kwScale multiplier (px at 1080p reference height)
   kwBox: boolean // keywords sit on a filled box
   outlineColor: string
   outlineWidth: number // px at 1080p
@@ -57,6 +58,7 @@ export interface CaptionStyle {
   animIntensity: number // 0..1
 }
 
+export type Density = number // 1..10 words per caption (validated at runtime)
 export interface Trim { start: number; end: number }
 export type Tool = 'media' | 'captions' | 'styles' | 'ai' | 'draft'
 
@@ -100,7 +102,7 @@ export const nearestWeight = (font: string, w: number) =>
 export const DEFAULT_STYLE: CaptionStyle = {
   font: 'Anton', weight: 400, size: 88, uppercase: true, letterSpacing: 0, align: 'center',
   color: '#ffffff', wordHighlight: true, highlightColor: '#ffe14d', highlightBox: false, autoEmphasis: false,
-  kwFont: '', kwWeight: 0, kwItalic: false, kwScale: 1, kwBox: false,
+  kwFont: '', kwWeight: 0, kwItalic: false, kwScale: 1, kwSize: null, kwBox: false,
   outlineColor: '#000000', outlineWidth: 9, shadow: 6, glow: 0, glowColor: '#ffffff',
   bgColor: '#000000', bgOpacity: 0, bgRadius: 0.22, bgPad: 0.28,
   animation: 'none', animSpeed: 1, animIntensity: 0.6,

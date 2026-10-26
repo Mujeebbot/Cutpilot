@@ -99,7 +99,7 @@ export function buildClips(plan: DraftPlan, makeId: () => string = uid): DraftEd
 }
 
 /** Captions for the words inside each range, in SOURCE time (so they stay aligned with the footage). */
-export function captionsForRanges(words: readonly Word[], ranges: readonly Range[], perCaption: 1 | 2 | 3): Caption[] {
+export function captionsForRanges(words: readonly Word[], ranges: readonly Range[], perCaption: number): Caption[] {
   const out: Caption[] = []
   for (const r of ranges) {
     const inside = words.filter((w) => (w.s + w.e) / 2 >= r.start && (w.s + w.e) / 2 < r.end)
