@@ -181,7 +181,20 @@ export function DraftScreen(p: Props) {
             <p className="text-xs text-mute">Text suggestions only. CutPilot does not find, generate or insert footage.</p>
             {ideas.length ? (
               <ul className="mt-2 space-y-2">
-                {ideas.map((b) => <li key={b.id} className="text-sm"><span className="tabular-nums text-accent-300">{fmt(b.at)}</span> <span className="text-fg">{b.text}</span><span className="block text-[11px] text-dim">{b.basis}</span></li>)}
+                {ideas.map((b) => (
+                  <li key={b.id} className="text-sm">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="tabular-nums text-accent-300">{fmt(b.at)}</span>
+                      <span className="text-fg">{b.text}</span>
+                      {b.confidence && (
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider ${b.confidence === 'strong' ? 'bg-accent-500/20 text-accent-300' : 'bg-white/5 text-mute'}`}>
+                          {b.confidence}
+                        </span>
+                      )}
+                    </div>
+                    <span className="block text-[11px] text-dim">{b.basis}</span>
+                  </li>
+                ))}
               </ul>
             ) : <p className="mt-2 text-sm text-mute">No ideas matched. B-roll ideas appear only for words the built-in lists recognise, words from your brief, names and numbers.</p>}
           </div>

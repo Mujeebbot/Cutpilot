@@ -6,24 +6,33 @@ import { topTerms } from './plan'
  * B-roll ideas are TEXT ONLY. CutPilot does not generate, search for or insert footage.
  * Ideas come from a small keyword lexicon, matched against the most frequent content words in a clip's transcript.
  */
-export interface BrollIdea { id: string; at: number; term: string; text: string; basis: string }
+export interface BrollIdea {
+  id: string
+  at: number
+  term: string
+  text: string
+  basis: string
+  confidence?: 'strong' | 'loose'
+}
 
 const LEXICON: { id: string; words: string[]; ideas: string[] }[] = [
-  { id: 'money', words: ['money', 'price', 'pricing', 'cost', 'costs', 'revenue', 'profit', 'sales', 'budget', 'invest', 'investing', 'dollars', 'salary', 'cash', 'income', 'paid', 'expensive', 'cheap', 'savings', 'afford'],
+  { id: 'money', words: ['money', 'price', 'pricing', 'cost', 'costs', 'revenue', 'profit', 'sales', 'budget', 'invest', 'investing', 'dollars', 'salary', 'cash', 'income', 'paid', 'expensive', 'cheap', 'savings', 'afford', 'crypto', 'shares', 'equity'],
     ideas: ['Cutaway: close-up of an invoice, receipt or pricing table', 'Animated number callout when the figure is spoken', 'Screen recording of a spreadsheet or dashboard'] },
-  { id: 'tech', words: ['app', 'apps', 'software', 'code', 'coding', 'website', 'computer', 'data', 'phone', 'tool', 'tools', 'platform', 'internet', 'online', 'digital', 'automation', 'algorithm', 'device'],
+  { id: 'tech', words: ['app', 'apps', 'software', 'code', 'coding', 'website', 'computer', 'data', 'phone', 'tool', 'tools', 'platform', 'internet', 'online', 'digital', 'automation', 'algorithm', 'device', 'ai', 'cloud', 'server', 'stack', 'database'],
     ideas: ['Screen recording of “{term}” in use', 'Over-the-shoulder shot of typing or scrolling', 'Short UI close-up that shows the feature being described'] },
-  { id: 'business', words: ['customer', 'customers', 'client', 'clients', 'team', 'meeting', 'startup', 'company', 'market', 'business', 'founder', 'brand', 'product', 'strategy', 'growth', 'audience'],
+  { id: 'business', words: ['customer', 'customers', 'client', 'clients', 'team', 'meeting', 'startup', 'company', 'market', 'business', 'founder', 'brand', 'product', 'strategy', 'growth', 'audience', 'retention', 'conversion', 'pitch', 'investor'],
     ideas: ['Cutaway of a team meeting or whiteboard session', 'Product or packaging close-up', 'Simple chart or arrow graphic showing the trend'] },
-  { id: 'health', words: ['health', 'sleep', 'diet', 'energy', 'stress', 'doctor', 'exercise', 'workout', 'training', 'fitness', 'nutrition', 'body', 'mental', 'habit', 'habits'],
+  { id: 'health', words: ['health', 'sleep', 'diet', 'energy', 'stress', 'doctor', 'exercise', 'workout', 'training', 'fitness', 'nutrition', 'body', 'mental', 'habit', 'habits', 'meditation', 'wellness', 'recovery', 'stamina'],
     ideas: ['Cutaway of the activity itself (walking, stretching, preparing food)', 'Text callout with the key habit or number', 'Slow-motion detail shot related to “{term}”'] },
-  { id: 'food', words: ['food', 'recipe', 'cooking', 'kitchen', 'coffee', 'dinner', 'breakfast', 'ingredients', 'restaurant', 'meal'],
+  { id: 'sports', words: ['run', 'running', 'climb', 'climbing', 'surf', 'surfing', 'ride', 'bike', 'cycling', 'jump', 'speed', 'score', 'race', 'match', 'ball', 'game', 'play'],
+    ideas: ['Action cutaway of movement or athletic gear', 'Dynamic wide tracking shot', 'Slow-motion impact or pivot moment'] },
+  { id: 'food', words: ['food', 'recipe', 'cooking', 'kitchen', 'coffee', 'dinner', 'breakfast', 'ingredients', 'restaurant', 'meal', 'bake', 'baking', 'flavour', 'taste', 'chef'],
     ideas: ['Close-up of the dish or ingredient being discussed', 'Overhead shot of preparation', 'Steam, pour or sizzle detail shot'] },
-  { id: 'travel', words: ['travel', 'trip', 'flight', 'hotel', 'city', 'beach', 'mountain', 'country', 'airport', 'journey', 'vacation'],
+  { id: 'travel', words: ['travel', 'trip', 'flight', 'hotel', 'city', 'beach', 'mountain', 'country', 'airport', 'journey', 'vacation', 'road', 'passport', 'explore', 'view'],
     ideas: ['Establishing shot of the place named', 'Map graphic marking the location', 'Travel details: tickets, luggage, street scenes'] },
-  { id: 'learning', words: ['learn', 'learning', 'study', 'school', 'lesson', 'course', 'teach', 'teacher', 'book', 'books', 'skill', 'skills', 'practice', 'mistake', 'mistakes'],
+  { id: 'learning', words: ['learn', 'learning', 'study', 'school', 'lesson', 'course', 'teach', 'teacher', 'book', 'books', 'skill', 'skills', 'practice', 'mistake', 'mistakes', 'read', 'guide'],
     ideas: ['Cutaway of notes, a book or a whiteboard', 'On-screen text with the lesson in one line', 'Quick before/after comparison graphic'] },
-  { id: 'creative', words: ['video', 'videos', 'camera', 'edit', 'editing', 'film', 'design', 'music', 'content', 'creator', 'create', 'photo', 'story', 'script', 'channel'],
+  { id: 'creative', words: ['video', 'videos', 'camera', 'edit', 'editing', 'film', 'design', 'music', 'content', 'creator', 'create', 'photo', 'story', 'script', 'channel', 'audio', 'mic', 'lens'],
     ideas: ['Behind-the-scenes shot of the setup', 'Timeline or editing-software screen recording', 'Example of the finished piece next to the raw take'] },
 ]
 
@@ -53,9 +62,10 @@ export function brollFor(words: readonly Word[], range: { start: number; end: nu
     if (cat) perCategory.set(cat.id, k + 1)
     const text = cat ? cat.ideas[k % cat.ideas.length].replace('{term}', term) : `A cutaway that shows “${term}”`
     const why = cat ? `matches the ${cat.id} word list` : focus ? 'a word from your brief' : 'looks like a name'
-    add({ at: hit.s, term, text, basis: `You say “${hit.t.replace(/[^\w'$%-]+/g, '')}” (${why})` })
+    const confidence = cat || focus ? 'strong' : 'loose'
+    add({ at: hit.s, term, text, basis: `You say “${hit.t.replace(/[^\w'$%-]+/g, '')}” (${why})`, confidence })
   }
   const num = inside.find((w) => /\d/.test(w.t))
-  if (num) add({ at: num.s, term: num.t, text: `On-screen text callout for “${num.t.replace(/[,.]$/, '')}”`, basis: 'A number is spoken here' })
+  if (num) add({ at: num.s, term: num.t, text: `On-screen text callout for “${num.t.replace(/[,.]$/, '')}”`, basis: 'A number is spoken here', confidence: 'strong' })
   return ideas.sort((a, b) => a.at - b.at)
 }

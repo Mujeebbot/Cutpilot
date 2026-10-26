@@ -11,6 +11,7 @@ export function DraftPanel(p: {
   clips: Clip[]; ranges: Range[]; selId: string | null; hasPlan: boolean; hasVideo: boolean; busy: boolean; planApplied: boolean
   onOpenDraft: () => void; onSelect: (id: string) => void; onMove: (id: string, dir: -1 | 1) => void; onRemove: (id: string) => void
   onRange: (id: string, start: number, end: number) => void; onClear: () => void; onRegenCaptions: () => void
+  onSplit?: () => void; canSplit?: boolean
 }) {
   const sel = p.clips.find((c) => c.id === p.selId)
   return (
@@ -56,6 +57,11 @@ export function DraftPanel(p: {
               </div>
             )}
             <div className="grid grid-cols-1 gap-2">
+              {p.canSplit && p.onSplit && (
+                <button className={`${btn} w-full`} onClick={p.onSplit} disabled={p.busy} title="Divide clip at current playhead position (S)">
+                  Split clip at playhead (S)
+                </button>
+              )}
               <button className={btn} onClick={p.onRegenCaptions} disabled={!p.hasPlan || p.busy} title={p.hasPlan ? 'Rebuild unedited draft captions for the current clips from the transcript' : 'Needs a draft transcript'}>Rebuild draft captions</button>
               <button className={btn} onClick={p.onClear} disabled={p.busy}>Remove clips, back to one trim</button>
             </div>

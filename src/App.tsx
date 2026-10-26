@@ -54,7 +54,7 @@ const sameSnap = (a: Snap, b: Snap) => a.captions === b.captions && a.style === 
 const SHORTCUTS: [string, string][] = [
   ['Space', 'Play / pause'], ['← / →', 'Step one frame (assumes 30 fps)'], ['Shift + ← / →', 'Step one second'],
   ['J', 'Jump back 5 s'], ['K', 'Pause'], ['L', 'Play (press again to speed up to 3×)'],
-  ['I / O', 'Set trim in / out at the playhead'], ['Delete / Backspace', 'Delete selected caption'],
+  ['I / O', 'Set trim in / out at the playhead'], ['S', 'Split clip at playhead'], ['Delete / Backspace', 'Delete selected caption'],
   ['Ctrl + Z', 'Undo'], ['Ctrl + Shift + Z  or  Ctrl + Y', 'Redo'], ['Ctrl + scroll (timeline)', 'Zoom timeline'],
   ['Alt (while dragging)', 'Turn snapping off'], ['?', 'Show this panel'],
 ]
@@ -455,6 +455,48 @@ export default function App() {
     info(`Rebuilt ${fresh.length} draft captions for the current clips. Captions you edited or typed were kept.`)
   }
 
+  const splitClip = () => {
+    if (!hasVideo) return
+    if (clipMode) {
+      const idx = clips.findIndex((c) => time >= c.start + 0.2 && time <= c.end - 0.2)
+      if (idx < 0) {
+        err('Playhead must be inside a clip with at least 0.2s on each side to split.')
+        return
+      }
+      const target = clips[idx]
+      const c1: Clip = { ...target, end: time }
+      const c2: Clip = { id: uid(), start: time, end: target.end, label: `${target.label ?? 'Clip'} (pt 2)` }
+      const next = [...clips]
+      next.splice(idx, 1, c1, c2)
+      setClips(next)
+      setSelClipId(c2.id)
+      info('Clip split into two at playhead.')
+    } else {
+      if (time < trim.start + 0.2 || time > trim.end - 0.2) {
+        err('Playhead must be inside the trim range with at least 0.2s on each side to split.')
+        return
+      }
+      const c1: Clip = { id: uid(), start: trim.start, end: time, label: 'Clip 1' }
+      const c2: Clip = { id: uid(), start: time, end: trim.end, label: 'Clip 2' }
+      setClips([c1, c2])
+      setSelClipId(c2.id)
+      info('Trim split into two clips.')
+    }
+  }
+  const canSplit = hasVideo && (
+    clipMode
+      ? clips.some((c) => time >= c.start + 0.2 && time <= c.end - 0.2)
+      : time >= trim.start + 0.2 && time <= trim.end - 0.2
+  )
+
+  const newProject = () => {
+    if (confirm('Start a new project? Any unsaved edits in this workspace will be cleared.')) {
+      clearAutosave()
+      clearSession()
+      navigate('/')
+    }
+  }
+
   // ---------- project start / restore (landing page hand-off, or a refresh at /editor) ----------
   const openVideo = (f: File) => {
     loadFile(f)
@@ -493,8 +535,8 @@ export default function App() {
 
   // ---------- keyboard ----------
   const rate = useRef(1)
-  const actions = useRef({ togglePlay, setIn, setOut, undo, redo, seek, del: () => { if (selId) deleteCaption(selId) }, time })
-  actions.current = { togglePlay, setIn, setOut, undo, redo, seek, del: () => { if (selId) deleteCaption(selId) }, time }
+  const actions = useRef({ togglePlay, setIn, setOut, undo, redo, seek, del: () => { if (selId) deleteCaption(selId) }, split: splitClip, time })
+  actions.current = { togglePlay, setIn, setOut, undo, redo, seek, del: () => { if (selId) deleteCaption(selId) }, split: splitClip, time }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
@@ -516,6 +558,7 @@ export default function App() {
       else if (e.key === 'Escape') setShowKeys(false)
       else if (e.key === 'i') a.setIn()
       else if (e.key === 'o') a.setOut()
+      else if (e.key === 's' || e.key === 'S') { e.preventDefault(); a.split() }
       else if (e.key === 'j') a.seek(a.time - 5)
       else if (e.key === 'k') { if (v) { v.pause(); v.playbackRate = 1; rate.current = 1 } }
       else if (e.key === 'l' && v) {
@@ -660,6 +703,7 @@ export default function App() {
         <span className="mx-1 h-4 w-px bg-line" />
         <input aria-label="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} spellCheck={false}
           className="h-8 w-44 rounded-md bg-transparent px-2 text-sm text-fg transition-colors hover:bg-ink-800 focus:bg-ink-800 focus:outline-none" />
+        <button onClick={newProject} className={`${btn} h-8 text-xs text-mute hover:text-fg`} title="Start a fresh project">New project</button>
         {ai && view === 'editor' && <button onClick={() => setView('draft')} className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-accent-500/50 bg-accent-500/10 px-2.5 py-1 text-[11px] text-fg" title={ai.label}><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-400" />Drafting… open</button>}
         <span title="Captions, style, trim and canvas are autosaved in this browser's storage. The video is kept in this browser (IndexedDB) so a refresh does not lose it, and is never uploaded. Use Save project for a portable backup."
           className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[11px] text-mute">
@@ -830,7 +874,8 @@ export default function App() {
             {tool === 'draft' && (
               <DraftPanel clips={clips} ranges={ranges} selId={selClipId} hasPlan={!!plan} hasVideo={hasVideo} busy={exporting} planApplied={!!plan?.appliedAt}
                 onOpenDraft={() => setView('draft')} onSelect={(id) => { selectClip(id); const c = clips.find((k) => k.id === id); if (c) seekSource(c.start) }}
-                onMove={moveClip} onRemove={removeClip} onRange={updateClipRange} onClear={clearClips} onRegenCaptions={regenCaptions} />
+                onMove={moveClip} onRemove={removeClip} onRange={updateClipRange} onClear={clearClips} onRegenCaptions={regenCaptions}
+                onSplit={splitClip} canSplit={canSplit} />
             )}
             {tool === 'ai' && <AiPanel hasVideo={hasVideo} ai={ai} selection={Math.max(0, trim.end - trim.start)} density={density} lastRun={lastRun} onDensity={changeDensity} onTranscribe={(m) => void runTranscribe(m)} />}
             {tool === 'assistant' && (
@@ -881,7 +926,7 @@ export default function App() {
                 </div>
               ))}
             </dl>
-            <p className="mt-3 text-[11px] leading-relaxed text-dim">Shortcuts are ignored while you type in a text field. There is no clip-splitting shortcut yet: clips come from an applied first draft. With clips, I / O move the selected clip's edges.</p>
+            <p className="mt-3 text-[11px] leading-relaxed text-dim">Shortcuts are ignored while you type in a text field. Press S to split a clip at the playhead. With clips, I / O move the selected clip's edges.</p>
           </div>
         </div>
       )}

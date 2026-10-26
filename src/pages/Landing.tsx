@@ -899,6 +899,73 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ------------------------------------------------------------------ ROADMAP TABLE */}
+        <section
+          id="roadmap"
+          tabIndex={-1}
+          aria-labelledby="roadmap-h"
+          className="relative overflow-hidden border-t border-white/[0.07] bg-[#0b0c0f] py-24 focus:outline-none sm:py-32"
+          style={{
+            background:
+              'radial-gradient(ellipse 600px 450px at 50% 20%, rgba(255, 225, 77, 0.05), transparent 70%)',
+          }}
+        >
+          <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="max-w-2xl">
+              <h2 id="roadmap-h" className="font-serif text-3xl font-normal text-white sm:text-4xl">
+                Development Roadmap
+              </h2>
+              <p className="mt-2 text-sm text-[#9da1ab]">
+                Transparent progress on CutPilot features, local capabilities, and planned improvements.
+              </p>
+            </div>
+
+            <div className="mt-10 overflow-x-auto">
+              <table className="w-full border-collapse border-t border-b border-white/10 text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs font-mono uppercase tracking-wider text-[#9da1ab]">
+                    <th className="py-3.5 pr-6 font-medium">Capability</th>
+                    <th className="py-3.5 px-6 font-medium">Status</th>
+                    <th className="py-3.5 pl-6 font-medium text-[#9da1ab]">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.06] text-[#9da1ab]">
+                  <tr>
+                    <td className="py-4 pr-6 font-medium text-white">Local Whisper Transcription</td>
+                    <td className="py-4 px-6"><span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-mono text-emerald-400">Shipped</span></td>
+                    <td className="py-4 pl-6 text-xs leading-relaxed">Runs in browser WebAssembly worker · No remote servers</td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 pr-6 font-medium text-white">Conversational Editing Assistant</td>
+                    <td className="py-4 px-6"><span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-mono text-emerald-400">Shipped</span></td>
+                    <td className="py-4 pl-6 text-xs leading-relaxed">Local intent-parsing assistant for density, styles, canvas &amp; trim</td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 pr-6 font-medium text-white">Flexible Caption Density (1–10 words)</td>
+                    <td className="py-4 px-6"><span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-mono text-emerald-400">Shipped</span></td>
+                    <td className="py-4 pl-6 text-xs leading-relaxed">Custom density input, word-by-word timing and fixed keyword px scaling</td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 pr-6 font-medium text-white">Audio Fade at Clip Cuts</td>
+                    <td className="py-4 px-6"><span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-mono text-emerald-400">Shipped</span></td>
+                    <td className="py-4 pl-6 text-xs leading-relaxed">Web Audio GainNode boundary ramping for smooth multi-clip export</td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 pr-6 font-medium text-white">Playhead Clip Split (S)</td>
+                    <td className="py-4 px-6"><span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-mono text-emerald-400">Shipped</span></td>
+                    <td className="py-4 pl-6 text-xs leading-relaxed">Split clips at playhead with keyboard shortcut (S) or Draft button</td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 pr-6 font-medium text-white">Multi-track Audio Mixing</td>
+                    <td className="py-4 px-6"><span className="rounded bg-amber-500/15 px-2 py-0.5 text-xs font-mono text-amber-300">In Design</span></td>
+                    <td className="py-4 pl-6 text-xs leading-relaxed">Background music track ducking under spoken voice</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         {/* ------------------------------------------------------------------ FINAL CTA */}
         <section aria-labelledby="cta-h" className="relative overflow-hidden py-28 text-center sm:py-36">
           {/* Ambient Brand Wave Glow (Violet & Warm Yellow Flow) */}
