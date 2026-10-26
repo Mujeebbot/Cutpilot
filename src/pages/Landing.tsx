@@ -25,7 +25,7 @@ function scrollToId(id: string) {
 
 // Single accent: caption highlight yellow used in product demos
 const btnPrimary =
-  'inline-flex h-11 items-center justify-center whitespace-nowrap rounded-lg bg-[#ffe14d] px-6 text-sm font-semibold text-black transition-all duration-150 hover:bg-[#ffd54f] active:scale-[0.98]'
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg bg-[#ffe14d] text-[#0b0c0f] font-semibold transition-all duration-200 hover:bg-[#fff066] hover:shadow-[0_0_20px_rgba(255,225,77,0.3)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffe14d] shadow-sm'
 
 export default function Landing() {
   const [dialog, setDialog] = useState(false)
@@ -191,10 +191,13 @@ export default function Landing() {
             {resume && (
               <Link
                 to="/editor"
-                className="hidden whitespace-nowrap text-xs text-white/60 transition-opacity hover:text-white hover:opacity-100 lg:inline-flex"
-                title={resume.videoName}
+                className="group hidden items-center gap-1.5 whitespace-nowrap text-xs font-medium text-white/70 transition-colors hover:text-white lg:inline-flex"
+                title={resume.videoName ? `Project: ${resume.videoName}` : 'Resume editing session'}
               >
-                Continue “{resumeName}” →
+                <span>Continue editing</span>
+                <span aria-hidden="true" className="text-white/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-white">
+                  →
+                </span>
               </Link>
             )}
 
@@ -236,8 +239,12 @@ export default function Landing() {
               GitHub
             </a>
             {resume && (
-              <Link to="/editor" className="block whitespace-nowrap rounded-md px-3 py-2 text-sm text-white/60 hover:text-white hover:bg-white/5">
-                Continue “{resumeName}” →
+              <Link
+                to="/editor"
+                title={resume.videoName ? `Project: ${resume.videoName}` : 'Resume editing session'}
+                className="block whitespace-nowrap rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white"
+              >
+                Continue editing →
               </Link>
             )}
           </nav>
@@ -253,15 +260,15 @@ export default function Landing() {
               'radial-gradient(ellipse 520px 520px at 68% 45%, rgba(245, 184, 0, 0.14) 0%, rgba(245, 184, 0, 0.04) 55%, transparent 70%), radial-gradient(circle 500px at 10% 85%, rgba(100, 160, 220, 0.05), transparent 70%)',
           }}
         >
-          {/* Ambient Hero Film Grain & Glow Texture */}
+          {/* Ambient Hero Film Grain & Glow Texture (Brand Tailored) */}
           <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
             <img
-              src="/media/hero-glow-texture.png"
+              src="/media/hero-bg-brand.png"
               alt=""
               aria-hidden="true"
-              className="h-full w-full object-cover object-right-top opacity-35 mix-blend-screen"
+              className="h-full w-full object-cover object-right-top opacity-85"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f]/60 via-transparent to-[#0b0c0f]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0c0f]/40 via-transparent to-[#0b0c0f]" />
           </div>
 
           {/* Top subtle vignette so nav reads clearly */}
@@ -303,18 +310,22 @@ export default function Landing() {
                   CutPilot turns raw footage into proposed edits you review clip by clip. Transcription runs entirely on your device.
                 </p>
 
-                {/* CTA Group */}
-                <div className="mt-8 flex flex-wrap items-center gap-5">
-                  <button onClick={() => setDialog(true)} className={`${btnPrimary} h-12 px-7 text-sm`}>
+                {/* CTA Group with consistent height, padding, corner radius & hover feedback */}
+                <div className="mt-8 flex flex-wrap items-center gap-4">
+                  <button onClick={() => setDialog(true)} className={`${btnPrimary} h-11 px-7 text-sm`}>
                     Start creating
                   </button>
                   <a
                     href="#how"
                     onClick={jump('how')}
-                    className="inline-flex h-12 items-center gap-1.5 rounded-lg border border-white/10 px-5 text-sm text-[#f3f1ec] transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+                    className="group inline-flex h-11 items-center gap-2 rounded-lg border border-white/15 px-6 text-sm font-medium text-[#f3f1ec] transition-all duration-200 hover:border-white/30 hover:bg-white/[0.05] active:scale-[0.98]"
                   >
                     <span>See the workflow</span>
-                    <Icon name="down" size={14} className="text-[#9da1ab]" />
+                    <Icon
+                      name="down"
+                      size={14}
+                      className="text-[#9da1ab] transition-transform duration-200 group-hover:translate-y-0.5 group-hover:text-white"
+                    />
                   </a>
                 </div>
 
@@ -343,23 +354,22 @@ export default function Landing() {
                 style={{ transform: `translateY(${parallaxY}px)` }}
               >
                 {/* Floating Review Card 1 (Top-Left) */}
-                <div className="absolute top-14 -left-10 sm:-left-16 z-30 flex items-center gap-2.5 rounded-[10px] border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-xs backdrop-blur-md shadow-xl float-card">
-                  <div className="flex items-center gap-1.5 text-white/90">
+                <div className="absolute top-12 -left-8 sm:-left-14 z-30 flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#121316]/95 px-3 py-2 text-xs backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] float-card">
+                  <div className="flex items-center gap-1.5 text-white/80">
                     <span className="font-mono text-[11px] font-medium text-white">Clip 1</span>
-                    <span className="text-white/30">·</span>
+                    <span className="text-white/20">·</span>
                     <span className="font-mono text-[11px] text-[#9da1ab]">0:11–0:31</span>
-                    <span className="text-white/30">·</span>
-                    <span className="text-[11px] text-[#f3f1ec]">Accepted</span>
                   </div>
-                  <span className="rounded bg-[#ffe14d] px-1.5 py-0.5 font-mono text-[9px] font-bold text-black">
+                  <span className="rounded bg-[#ffe14d] px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#0b0c0f]">
                     Score 96
                   </span>
                 </div>
 
                 {/* Floating Review Card 2 (Bottom-Left) */}
-                <div className="absolute bottom-20 -left-6 sm:-left-10 z-30 flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.06] px-3 py-1.5 text-xs backdrop-blur-md shadow-xl float-card-delayed">
-                  <span className="font-mono text-[11px] text-[#ffe14d]">Pause cut</span>
-                  <span className="font-mono text-[11px] text-white/90">-4.8s</span>
+                <div className="absolute bottom-20 -left-6 sm:-left-10 z-30 flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#121316]/95 px-3 py-2 text-xs backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)] float-card-delayed">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#ffe14d]" />
+                  <span className="text-[11px] text-[#9da1ab]">Pause trimmed</span>
+                  <span className="font-mono text-[11px] font-medium text-[#ffe14d]">-4.8s</span>
                 </div>
 
                 {/* Phone Frame: bezel 6px, radius 36px, 1px inner highlight at top edge, no outer ring */}
@@ -380,23 +390,23 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Studio Screenshot Display: ~1100px wide, soft amber glow, top-edge highlight */}
-            {/* TODO: Replace with /public/media/product/studio.webp when capture script is generated */}
+            {/* Studio Screenshot Display: real CutPilot multi-clip timeline & canvas player */}
             <div className="relative mt-12 sm:mt-16 z-10 w-full max-w-[1100px] mx-auto">
               <div className="overflow-hidden rounded-2xl border border-white/10 border-t-white/30 bg-[#101216] shadow-[0_25px_80px_-20px_rgba(245,184,0,0.14)]">
                 <div className="flex h-10 items-center justify-between border-b border-white/[0.07] bg-[#14161b] px-4">
                   <span className="font-mono text-xs text-[#9da1ab]">
-                    CutPilot Studio · Proposed clips &amp; multi-clip timeline
+                    CutPilot Studio · Multi-clip timeline &amp; canvas player
                   </span>
                   <div className="flex items-center gap-3 text-xs font-mono text-[#9da1ab]">
-                    <span>Score: 96</span>
+                    <span className="text-[#ffe14d]">Score: 96</span>
                     <span className="hidden sm:inline">· 100% On-Device</span>
+                    <span className="hidden sm:inline">· 9:16 Canvas</span>
                   </div>
                 </div>
                 <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#0b0c0f]">
                   <img
-                    src="/media/studio-screenshot.jpg"
-                    alt="CutPilot browser-based video editing studio"
+                    src="/media/studio-interface.png"
+                    alt="CutPilot studio editor interface with real multi-clip timeline, waveforms, and video player"
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />
@@ -573,7 +583,7 @@ export default function Landing() {
                   From condensed bold emphasis to kinetic sweep and editorial serifs. Live animated in your browser.
                 </p>
               </div>
-              <button onClick={() => setDialog(true)} className={`${btnPrimary} shrink-0`}>
+              <button onClick={() => setDialog(true)} className={`${btnPrimary} h-11 px-6 text-sm shrink-0`}>
                 Browse in editor
               </button>
             </div>
@@ -661,14 +671,14 @@ export default function Landing() {
               'radial-gradient(ellipse 650px 450px at 50% 25%, rgba(255, 255, 255, 0.06), transparent 70%)',
           }}
         >
-          {/* Cinematic Streaks Texture */}
+          {/* Subtle Lower Section Brand Background Texture */}
           <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
             <img
-              src="/media/cinematic-streaks.png"
+              src="/media/lower-sections-bg.png"
               alt=""
               aria-hidden="true"
               loading="lazy"
-              className="h-full w-full object-cover object-center opacity-20 mix-blend-screen"
+              className="h-full w-full object-cover object-right-top opacity-35 mix-blend-screen"
             />
             <div className="absolute inset-0 bg-gradient-to-b from-[#101216] via-transparent to-[#101216]" />
           </div>
@@ -683,17 +693,17 @@ export default function Landing() {
                   CutPilot does not force you to accept an automated output blindly. You review proposed segments, retime in and out points on a full multi-clip timeline, adjust caption timing word by word, and export directly from your browser.
                 </p>
                 <div className="mt-8">
-                  <button onClick={() => setDialog(true)} className={btnPrimary}>
+                  <button onClick={() => setDialog(true)} className={`${btnPrimary} h-11 px-7 text-sm`}>
                     Open the editor
                   </button>
                 </div>
               </div>
 
-              {/* Enlarged Screenshot with 3D Perspective Tilt on Hover */}
+              {/* Real Interface Preview with 3D Perspective Tilt on Hover */}
               <div className="perspective-[1000px] overflow-hidden rounded-xl border border-white/10 bg-[#0b0c0f] shadow-2xl transition-transform duration-500 ease-out hover:[transform:none] [transform:rotateY(-5deg)_rotateX(2deg)]">
                 <img
-                  src="/media/studio-screenshot.jpg"
-                  alt="CutPilot studio editor interface"
+                  src="/media/studio-interface.png"
+                  alt="CutPilot studio editor interface with multi-clip timeline, waveforms, and video player"
                   loading="lazy"
                   className="h-full w-full object-cover"
                 />
@@ -887,7 +897,7 @@ export default function Landing() {
               No account creation. Your video stays private on your machine.
             </p>
             <div className="mt-8 flex justify-center">
-              <button onClick={() => setDialog(true)} className={`${btnPrimary} h-12 px-8 text-sm`}>
+              <button onClick={() => setDialog(true)} className={`${btnPrimary} h-11 px-8 text-sm`}>
                 Start creating
               </button>
             </div>
